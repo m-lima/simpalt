@@ -1,7 +1,7 @@
 Simpalt
 =====================
 
-A ZSH theme based on [agnoster](https://github.com/agnoster/agnoster-zsh-theme) with focus on screen realstate
+A ZSH theme based on [agnoster](https://github.com/agnoster/agnoster-zsh-theme) with focus on screen real estate.
 
 ###### Demo
 [![Demo](img/simple.png)](https://asciinema.org/a/gYRKD3Hdv9dvcZ6JiCyWlvhkM)
@@ -89,11 +89,11 @@ If set to anything, the prompt will be presented in compact mode; otherwise, the
 
 ##### SIMPALT_PROMPT_SEGMENTS
 ###### Set the prompt segments to be presented
-This array will set all segments that compose the prompt
+This array will set all segments that compose the prompt.
 
 ##### SIMPALT_MAIN_BRANCHES
 ###### Set the branches that do not require full name
-When in a git repository, if the current branch is present in this list, it's name will be omitted
+When in a git repository, if the current branch is present in this list, it's name will be omitted.
 
 Available segments:
 * prompt_aws
@@ -103,7 +103,7 @@ Available segments:
 * prompt_dir prompt_git
 
 ### Suggested setup
-You can enable quick switch between compact and full mode by registering something similar to the following in your `.zshrc`
+You can enable quick switch between compact and full mode by registering something similar to the following in your `.zshrc`:
 ```bash
 ts() { [ $SIMPALT_SMALL ] && unset SIMPALT_SMALL || SIMPALT_SMALL=1 }
 ```
