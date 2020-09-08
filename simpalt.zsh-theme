@@ -102,6 +102,9 @@ prompt_git() {
   is_dirty() {
     test -n "$(git status --porcelain --ignore-submodules)"
   }
+  is_wip() {
+    test -n "$(git log -n1 --format='%s' | grep -iw '^wip')"
+  }
   ref="$vcs_info_msg_0_"
 
   if [ $SIMPALT_SMALL ]; then
@@ -110,6 +113,8 @@ prompt_git() {
     else
       if ! $(git symbolic-ref HEAD &> /dev/null); then
         color=red
+      elif is_wip; then
+        color=magenta
       elif is_dirty; then
         color=yellow
       else
@@ -131,6 +136,10 @@ prompt_git() {
       else
         color=green
         ref="$ref"
+      fi
+
+      is_wip; then
+        color=magenta
       fi
 
       if ! $(git symbolic-ref HEAD &> /dev/null); then
