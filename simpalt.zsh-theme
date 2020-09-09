@@ -138,7 +138,7 @@ prompt_git() {
         ref="$ref"
       fi
 
-      is_wip; then
+      if is_wip; then
         color=magenta
       fi
 
