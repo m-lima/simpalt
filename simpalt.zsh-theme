@@ -103,7 +103,7 @@ prompt_git() {
     test -n "$(git status --porcelain --ignore-submodules)"
   }
   is_wip() {
-    test -n "$(git log -n1 --format='%s' | grep -iw '^wip')"
+    test -n "$(git log -n1 --format='%s' 2> /dev/null | grep -iw '^wip')"
   }
   ref="$vcs_info_msg_0_"
 
