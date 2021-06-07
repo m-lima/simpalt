@@ -99,12 +99,15 @@ prompt_context() {
 # Git: branch/detached head, dirty status
 prompt_git() {
   local ref color
+
   is_dirty() {
     test -n "$(git status --porcelain --ignore-submodules)"
   }
+
   is_wip() {
     test -n "$(git log -n1 --format='%s' 2> /dev/null | grep -iw '^wip')"
   }
+
   ref="$vcs_info_msg_0_"
 
   if [ $SIMPALT_SMALL ]; then
@@ -113,8 +116,6 @@ prompt_git() {
     else
       if ! $(git symbolic-ref HEAD &> /dev/null); then
         color=red
-      elif is_wip; then
-        color=magenta
       elif is_dirty; then
         color=yellow
       else
@@ -138,10 +139,6 @@ prompt_git() {
         ref="$ref"
       fi
 
-      if is_wip; then
-        color=magenta
-      fi
-
       if ! $(git symbolic-ref HEAD &> /dev/null); then
         ref="➦ ${ref/.../}"
       else
@@ -150,6 +147,10 @@ prompt_git() {
 
       prompt_segment $color $PRIMARY_FG "$ref"
     fi
+  fi
+
+  if is_wip; then
+    prompt_segment magenta
   fi
 }
 
