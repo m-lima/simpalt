@@ -122,12 +122,23 @@ prompt_git() {
         color=green
       fi
 
-      if [[ "$color" == "red" ]] || [[ $SIMPALT_MAIN_BRANCHES =~ (^|[[:space:]])$ref($|[[:space:]]) ]]; then
+      if [[ "$color" == "red" ]]; then
         ref=""
+      elif [[ $SIMPALT_MAIN_BRANCHES =~ (^|[[:space:]])$ref($|[[:space:]]) ]]; then
+        if is_wip; then
+          ref="↺"
+        else
+          ref=""
+        fi
       else
         ref="${ref/*\//}"
+
+        if is_wip; then
+          ref="↺ $ref"
+        fi
       fi
     fi
+
     prompt_segment $color $PRIMARY_FG "$ref"
   else
     if [[ -n "$ref" ]]; then
@@ -141,16 +152,14 @@ prompt_git() {
 
       if ! $(git symbolic-ref HEAD &> /dev/null); then
         ref="➦ ${ref/.../}"
+      elif is_wip; then
+        ref="↺ $ref"
       else
         ref=" $ref"
       fi
 
       prompt_segment $color $PRIMARY_FG "$ref"
     fi
-  fi
-
-  if is_wip; then
-    prompt_segment magenta
   fi
 }
 
