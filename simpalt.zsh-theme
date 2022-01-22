@@ -25,6 +25,7 @@ fi
 if [[ -z $SIMPALT_MAIN_BRANCHES ]]; then
   typeset -aHg SIMPALT_MAIN_BRANCHES=(
       master
+      main
       development
   )
 fi
