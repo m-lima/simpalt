@@ -101,11 +101,11 @@ prompt_context() {
 prompt_git() {
   local ref color
 
-  is_dirty() {
-    test -n "$(git status --porcelain --ignore-submodules)"
+  local is_dirty() {
+    test -n "$(git status --porcelain --ignore-submodules 2> /dev/null)"
   }
 
-  is_wip() {
+  local is_wip() {
     test -n "$(git log -n1 --format='%s' 2> /dev/null | grep -iw '^wip')"
   }
 
