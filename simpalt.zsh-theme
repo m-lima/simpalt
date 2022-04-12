@@ -99,53 +99,56 @@ prompt_context() {
 
 # Git: branch/detached head, dirty status
 prompt_git() {
-  local ref color
-
-  local is_dirty() {
-    test -n "$(git status --porcelain --ignore-submodules 2> /dev/null)"
-  }
+  local ref color git_state git_status
 
   local is_wip() {
     test -n "$(git log -n1 --format='%s' 2> /dev/null | grep -iw '^wip')"
   }
 
-  ref="$vcs_info_msg_0_"
+  ref="$(git rev-parse --abbrev-ref HEAD 2> /dev/null)"
 
   if [ $SIMPALT_SMALL ]; then
     if [ -z "$ref" ]; then
       color=blue
+    elif prompt_simpalt_get_git_state; then
+      color=cyan
+      ref="$git_state"
+    elif ! $(git symbolic-ref HEAD &> /dev/null); then
+      color=red
+      ref=""
     else
-      if ! $(git symbolic-ref HEAD &> /dev/null); then
-        color=red
-      elif is_dirty; then
+      if ! [[ $SIMPALT_MAIN_BRANCHES =~ (^|[[:space:]])$ref($|[[:space:]]) ]]; then
+        prompt_segment black default 
+        __SIMPALT_PENDING_FLAG=1
+      fi
+
+      if is_wip; then
+        ref="↺"
+      else
+        ref=""
+      fi
+
+      git_status="$(git status --porcelain --ignore-submodules 2> /dev/null)"
+      if [ $? -ne 0 ]; then
+        color=magenta
+      elif [ -n "${git_status}" ]; then
         color=yellow
       else
         color=green
-      fi
-
-      if [[ "$color" == "red" ]]; then
-        ref=""
-      elif [[ $SIMPALT_MAIN_BRANCHES =~ (^|[[:space:]])$ref($|[[:space:]]) ]]; then
-        if is_wip; then
-          ref="↺"
-        else
-          ref=""
-        fi
-      else
-        ref="${ref/*\//}"
-
-        if is_wip; then
-          ref="↺ $ref"
-        fi
       fi
     fi
 
     prompt_segment $color $PRIMARY_FG "$ref"
   else
     if [[ -n "$ref" ]]; then
-      if is_dirty; then
+      if [ -n "$(git status --porcelain 2> /dev/null)" ]; then
         color=yellow
-        ref="$ref ±"
+
+        if prompt_simpalt_get_git_state; then
+          ref="$ref ($git_state)"
+        else
+          ref="$ref ±"
+        fi
       else
         color=green
         ref="$ref"
@@ -205,38 +208,55 @@ prompt_virtualenv() {
   fi
 }
 
+prompt_simpalt_get_git_state () {
+  local gitdir="$(git rev-parse --absolute-git-dir)"
+  local tmp
+
+  for tmp in "${gitdir}/rebase-apply" \
+             "${gitdir}/rebase"       \
+             "${gitdir}/../.dotest" \
+             "${gitdir}/rebase-merge/interactive" \
+             "${gitdir}/.dotest-merge/interactive" \
+             "${gitdir}/rebase-merge" \
+             "${gitdir}/.dotest-merge"; do
+    if [[ -d ${tmp} ]]; then
+      [ $SIMPALT_SMALL ] && git_state="" || git_state="rebase"
+      return 0
+    fi
+  done
+
+  if [[ -f "${gitdir}/MERGE_HEAD" ]]; then
+    [ $SIMPALT_SMALL ] && git_state="" || git_state="merge"
+    return 0
+  fi
+
+  if [[ -f "${gitdir}/BISECT_LOG" ]]; then
+    [ $SIMPALT_SMALL ] && git_state="" || git_state="bisect"
+    return 0
+  fi
+
+  if [[ -f "${gitdir}/CHERRY_PICK_HEAD" ]] || [[ -d "${gitdir}/sequencer" ]] ; then
+    [ $SIMPALT_SMALL ] && git_state="" || git_state="cherry"
+    return 0
+  fi
+
+  return 1
+}
+
 ## Main prompt
 prompt_simpalt_main() {
   RETVAL=$?
   __SIMPALT_CURRENT_BG='NONE'
-  unset __SIMPALT_PENDING_FLAG
 
   for prompt_segment in "${SIMPALT_PROMPT_SEGMENTS[@]}"; do
     [[ -n $prompt_segment ]] && $prompt_segment
   done
   prompt_end
-
-  unset __SIMPALT_CURRENT_BG
-  unset __SIMPALT_PENDING_FLAG
-}
-
-prompt_simpalt_precmd() {
-  vcs_info
-  PROMPT='%{%f%b%k%}$(prompt_simpalt_main) '
 }
 
 prompt_simpalt_setup() {
-  autoload -Uz add-zsh-hook
-  autoload -Uz vcs_info
-
   prompt_opts=(cr subst percent)
-
-  add-zsh-hook precmd prompt_simpalt_precmd
-
-  zstyle ':vcs_info:*' enable git
-  zstyle ':vcs_info:*' check-for-changes false
-  zstyle ':vcs_info:git*' formats '%b'
-  zstyle ':vcs_info:git*' actionformats '%b (%a)'
+  PROMPT='%{%f%b%k%}$(prompt_simpalt_main) '
 }
 
 prompt_simpalt_setup "$@"
