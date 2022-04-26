@@ -254,9 +254,14 @@ prompt_simpalt_main() {
   prompt_end
 }
 
+prompt_simpalt_precmd() {
+  PROMPT='%{%f%b%k%}$(prompt_simpalt_main) '
+}
+
 prompt_simpalt_setup() {
   prompt_opts=(cr subst percent)
-  PROMPT='%{%f%b%k%}$(prompt_simpalt_main) '
+  autoload -Uz add-zsh-hook
+  add-zsh-hook precmd prompt_simpalt_precmd
 }
 
 prompt_simpalt_setup "$@"
