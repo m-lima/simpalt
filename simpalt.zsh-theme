@@ -256,6 +256,11 @@ prompt_simpalt_main() {
 
 prompt_simpalt_precmd() {
   PROMPT='%{%f%b%k%}$(prompt_simpalt_main) '
+  if (( COLUMNS > 120 )); then
+    RPROMPT="%{%F{23}%}$(date '+%H:%M:%S')"
+  else
+    unset RPROMPT
+  fi
 }
 
 prompt_simpalt_setup() {
