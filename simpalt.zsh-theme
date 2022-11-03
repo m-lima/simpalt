@@ -117,10 +117,25 @@ prompt_git() {
       color=red
       ref=""
     else
-      if ! [[ $SIMPALT_MAIN_BRANCHES =~ (^|[[:space:]])$ref($|[[:space:]]) ]]; then
-        prompt_segment black default 
-        __SIMPALT_PENDING_FLAG=1
+      local branch_color=default
+      local behind=`git rev-list --count HEAD..@{upstream} 2> /dev/null`
+      if [ "$behind" ]; then
+        local ahead=`git rev-list --count @{upstream}..HEAD 2> /dev/null`
+        if (( behind > 0 )); then
+          if (( ahead > 0 )); then
+            branch_color=magenta
+          else
+            branch_color=red
+          fi
+        elif (( ahead > 0 )); then
+          branch_color=yellow
+        fi
+      else
+        branch_color=blue
       fi
+
+      prompt_segment black $branch_color 
+      __SIMPALT_PENDING_FLAG=1
 
       if is_wip; then
         ref="↺"
