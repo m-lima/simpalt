@@ -96,6 +96,39 @@ macro_rules! symbol {
     };
 }
 
+fn pwd(path: Option<String>) -> String {
+    path.map_or_else(
+        || {
+            println!(concat!(
+                color!(fg red),
+                "`PWD` environment variable not available",
+                color!(reset)
+            ));
+            String::new()
+        },
+        |pwd| {
+            if let Ok(home) = std::env::var("HOME") {
+                if pwd == home {
+                    String::from("~")
+                } else {
+                    let mut parts = pwd.split(std::path::MAIN_SEPARATOR);
+                    let head = parts.next();
+                    let tail = parts.last().filter(|t| !t.is_empty());
+                    tail.or_else(|| head.filter(|h| !h.is_empty()))
+                        .map_or_else(|| String::from(std::path::MAIN_SEPARATOR), String::from)
+                }
+            } else {
+                println!(concat!(
+                    color!(fg red),
+                    "`HOME` environment variable not available",
+                    color!(reset)
+                ));
+                pwd
+            }
+        },
+    )
+}
+
 fn left(host: impl std::fmt::Display, args: impl Iterator<Item = String>) {
     let (error, jobs) = args.fold((false, false), |acc, curr| {
         if curr == "e" {
@@ -125,37 +158,6 @@ fn left(host: impl std::fmt::Display, args: impl Iterator<Item = String>) {
         ""
     };
 
-    let pwd = std::env::var("PWD").map_or_else(
-        |_| {
-            println!(concat!(
-                color!(fg red),
-                "`PWD` environment variable not available",
-                color!(reset)
-            ));
-            String::new()
-        },
-        |pwd| {
-            if let Ok(home) = std::env::var("HOME") {
-                if pwd == home {
-                    String::from("~")
-                } else {
-                    let mut parts = pwd.split(std::path::MAIN_SEPARATOR);
-                    let head = parts.next();
-                    let tail = parts.last().filter(|t| !t.is_empty());
-                    tail.or_else(|| head.filter(|h| !h.is_empty()))
-                        .map_or_else(|| String::from(std::path::MAIN_SEPARATOR), String::from)
-                }
-            } else {
-                println!(concat!(
-                    color!(fg red),
-                    "`HOME` environment variable not available",
-                    color!(reset)
-                ));
-                pwd
-            }
-        },
-    );
-
     print!(
         concat!(
             color!(bg black),
@@ -177,7 +179,7 @@ fn left(host: impl std::fmt::Display, args: impl Iterator<Item = String>) {
         jobs = jobs,
         venv = venv,
         host = host,
-        pwd = pwd
+        pwd = pwd(std::env::var("PWD").ok()),
     );
 }
 
@@ -234,5 +236,26 @@ mod tests {
     use super::*;
 
     #[test]
-    fn pwd_parsing() {}
+    fn pwd_parsing() {
+        let tests = [
+            ("", "/"),
+            ("/", "/"),
+            ("a/", "a"),
+            ("a/b", "b"),
+            ("/a/b", "b"),
+            ("C:/a", "a"),
+            ("C:/", "C:"),
+            ("C:", "C:"),
+        ]
+        .map(|(a, b)| {
+            (
+                Some(a.replace('/', String::from(std::path::MAIN_SEPARATOR).as_str())),
+                b.replace('/', String::from(std::path::MAIN_SEPARATOR).as_str()),
+            )
+        });
+
+        for (input, output) in tests {
+            assert_eq!(pwd(input), output);
+        }
+    }
 }
