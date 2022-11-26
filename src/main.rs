@@ -1,6 +1,3 @@
-mod args;
-mod symbol;
-
 macro_rules! color {
     (reset) => {
         "[m"
@@ -76,7 +73,7 @@ macro_rules! color {
 }
 
 macro_rules! symbol {
-    (fail) => {
+    (error) => {
         "✘"
     };
     (jobs) => {
@@ -89,7 +86,7 @@ macro_rules! symbol {
         "☢" //     
     };
     (root) => {
-        "☢" // 
+        "☢" //  ⚡
     };
     (div thin) => {
         ""
@@ -99,78 +96,35 @@ macro_rules! symbol {
     };
 }
 
-struct Color;
-
-enum Text {
-    Static(&'static str),
-    Dynamic(String),
-}
-
-struct Segment {
-    text: Text,
-    fg: Option<Color>,
-    bg: Option<Color>,
-}
-
-const BEGIN: Segment = Segment {
-    text: Text::Static(""),
-    fg: None,
-    bg: None,
-};
-
-mod prompt {
-    use super::{Color, Segment, Text};
-
-    pub(super) fn aws() -> Option<Segment> {
-        if std::env::var("AWS_VAULT").is_ok() {
-            Some(Segment {
-                text: Text::Static(""),
-                fg: None,
-                bg: Some(Color),
-            })
+fn left(host: impl std::fmt::Display, args: impl Iterator<Item = String>) {
+    let (error, jobs) = args.fold((false, false), |acc, curr| {
+        if curr == "e" {
+            (true, acc.1)
+        } else if curr == "j" {
+            (acc.0, true)
         } else {
-            None
+            acc
         }
-    }
-}
+    });
 
-fn left(args: args::Args) {
-    let status = args.status.map_or(false, |s| s != 0);
-    let root = if args.root {
-        concat!(color!(fg yellow), symbol!(root), " ")
+    let error = if error {
+        concat!(color!(fg red), symbol!(error), " ")
     } else {
         ""
     };
-    let status = if status {
-        concat!(color!(fg red), symbol!(fail), " ")
-    } else {
-        ""
-    };
-    let jobs = if args.jobs {
+
+    let jobs = if jobs {
         concat!(color!(fg cyan), symbol!(jobs), " ")
     } else {
         ""
     };
-    let host = concat!(color!(fg reset), "⏾ ");
-    let venv = if std::env::var("VIRTUAL_ENV").is_ok() {
-        concat!(
-            color!(fg black),
-            color!(bg cyan),
-            symbol!(div),
-            color!(fg cyan),
-            color!(bg black),
-            symbol!(div),
-            color!(fg reset),
-            " ",
-        )
-    } else {
-        ""
-    };
+
     let venv = if std::env::var("VIRTUAL_ENV").is_ok() {
         concat!(color!(fg green), " ") // ")
     } else {
         ""
     };
+
     let pwd = std::env::var("PWD").map_or_else(
         |_| {
             println!(concat!(
@@ -201,10 +155,17 @@ fn left(args: args::Args) {
             }
         },
     );
+
     print!(
         concat!(
             color!(bg black),
-            " {root}{status}{jobs}{venv}{host}{pwd} ",
+            " {error}{jobs}{venv}",
+            color!(reset),
+            color!(bg black),
+            "{host}",
+            color!(reset),
+            color!(bg black),
+            " {pwd} ",
             color!(fg black),
             color!(bg blue),
             symbol!(div),
@@ -212,8 +173,7 @@ fn left(args: args::Args) {
             color!(bg reset),
             symbol!(div),
         ),
-        root = root,
-        status = status,
+        error = error,
         jobs = jobs,
         venv = venv,
         host = host,
@@ -233,12 +193,39 @@ fn right() {
     );
 }
 
-fn main() {
-    let args = args::parse();
+fn help(bin: Option<String>) {
+    let bin = bin
+        .map(std::path::PathBuf::from)
+        .and_then(|p| {
+            p.file_name()
+                .and_then(std::ffi::OsStr::to_str)
+                .map(String::from)
+        })
+        .unwrap_or_else(|| String::from(env!("CARGO_BIN_NAME")));
 
-    match args {
-        args::Mode::Left(args) => left(args),
-        args::Mode::Right => right(),
+    println!("Usage: {bin} <COMMAND> [HOST [e] [j]]",);
+    println!();
+    println!("Commands:");
+    println!("  r  Generate right side prompt");
+    println!("  l  Generate left side prompt");
+    println!("  h  Show this help message");
+    println!();
+    println!("Arguments (only for left side prompt):");
+    println!("  HOST  Symbol to be used as host (can contain ansii escape codes)");
+    println!("  e     Last command was an error");
+    println!("  j     There are background processes running");
+}
+
+fn main() {
+    let mut args = std::env::args();
+    let bin = args.next();
+    let command = args.next();
+    let host = args.next();
+
+    match (command.as_deref(), host) {
+        (Some("r"), _) => right(),
+        (Some("l"), Some(host)) => left(host, args),
+        _ => help(bin),
     }
 }
 
