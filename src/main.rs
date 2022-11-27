@@ -53,24 +53,19 @@ macro_rules! color {
         9
     };
 }
+
 macro_rules! symbol {
     (error) => {
         "✘"
     };
     (jobs) => {
-        "" // "⚙"
+        ""
     };
-    (lock) => {
-        "" // 
+    (python) => {
+        " " // " "
     };
-    (venv) => {
-        "☢" //     
-    };
-    (root) => {
-        "☢" //  ⚡
-    };
-    (div thin) => {
-        ""
+    (branch) => {
+        ""
     };
     (merge) => {
         ""
@@ -92,7 +87,17 @@ macro_rules! symbol {
     };
 }
 
-fn segment_pwd(path: &std::path::PathBuf) -> String {
+macro_rules! div {
+    (from = $from: expr, to = $to: expr) => {
+        style!(fg = $from, bg = $to, symbol!(div))
+    };
+
+    (from = $from: expr, by = $by: expr, to = $to: expr) => {
+        style!(fg = $from, bg = $by, symbol!(div) style!(fg = $by, bg = $to, symbol!(div)))
+    };
+}
+
+fn render_pwd(path: &std::path::PathBuf) -> String {
     if let Ok(home) = std::env::var("HOME").map(std::path::PathBuf::from) {
         if home.eq(path) {
             String::from("~")
@@ -128,6 +133,66 @@ fn segment_pwd(path: &std::path::PathBuf) -> String {
     }
 }
 
+fn render_git(path: &std::path::PathBuf) -> &'static str {
+    match git::prompt(path) {
+        git::Repo::None => div!(from = color!(black), by = color!(blue), to = color!(reset)),
+        git::Repo::Clean(sync) => match sync {
+            git::Sync::UpToDate => {
+                concat!(
+                    symbol!(branch),
+                    div!(from = color!(black), by = color!(green), to = color!(reset))
+                )
+            }
+            git::Sync::Behind => {
+                style!(fg = color!(red), symbol!(branch) div!(from = color!(black), by = color!(green), to = color!(reset)))
+            }
+            git::Sync::Ahead => {
+                style!(fg = color!(yellow), symbol!(branch) div!(from = color!(black), by = color!(green), to = color!(reset)))
+            }
+            git::Sync::Diverged => {
+                style!(fg = color!(magenta), symbol!(branch) div!(from = color!(black), by = color!(green), to = color!(reset)))
+            }
+            git::Sync::Local => {
+                style!(fg = color!(blue), symbol!(branch) div!(from = color!(black), by = color!(green), to = color!(reset)))
+            }
+        },
+        git::Repo::Dirty(sync) => match sync {
+            git::Sync::UpToDate => {
+                concat!(
+                    symbol!(branch),
+                    div!(
+                        from = color!(black),
+                        by = color!(yellow),
+                        to = color!(reset)
+                    )
+                )
+            }
+            git::Sync::Behind => {
+                style!(fg = color!(red), symbol!(branch) div!(from = color!(black), by = color!(yellow), to = color!(reset)))
+            }
+            git::Sync::Ahead => {
+                style!(fg = color!(yellow), symbol!(branch) div!(from = color!(black), by = color!(yellow), to = color!(reset)))
+            }
+            git::Sync::Diverged => {
+                style!(fg = color!(magenta), symbol!(branch) div!(from = color!(black), by = color!(yellow), to = color!(reset)))
+            }
+            git::Sync::Local => {
+                style!(fg = color!(blue), symbol!(branch) div!(from = color!(black), by = color!(yellow), to = color!(reset)))
+            }
+        },
+        git::Repo::Detached => {
+            div!(
+                from = color!(black),
+                by = color!(magenta),
+                to = color!(reset)
+            )
+        }
+        git::Repo::Pending => div!(from = color!(black), by = color!(cyan), to = color!(reset)),
+        git::Repo::New => div!(from = color!(black), by = color!(white), to = color!(reset)),
+        git::Repo::Error => div!(from = color!(black), by = color!(red), to = color!(reset)),
+    }
+}
+
 fn left(args: impl Iterator<Item = String>) {
     let (host, error, jobs) = args.fold((None, false, false), |acc, curr| {
         if curr == "-e" {
@@ -154,7 +219,7 @@ fn left(args: impl Iterator<Item = String>) {
     };
 
     let venv = if std::env::var("VIRTUAL_ENV").is_ok() {
-        style!(fg = color!(green), " ") // ")
+        style!(fg = color!(green), symbol!(python))
     } else {
         ""
     };
@@ -164,14 +229,13 @@ fn left(args: impl Iterator<Item = String>) {
         .ok();
 
     let prompt_pwd = if let Some(ref pwd) = pwd {
-        segment_pwd(pwd)
+        render_pwd(pwd)
     } else {
         String::new()
     };
 
     let prompt_git = if let Some(ref pwd) = pwd {
-        println!("{:?}", git::prompt(pwd));
-        style!(fg = color!(black), bg = color!(reset), symbol!(div))
+        render_git(pwd)
     } else {
         style!(fg = color!(black), bg = color!(reset), symbol!(div))
     };
@@ -241,32 +305,3 @@ fn main() {
         _ => help(bin),
     }
 }
-
-// #[cfg(test)]
-// mod tests {
-//     use super::*;
-//
-//     #[test]
-//     fn pwd_parsing() {
-//         let tests = [
-//             ("", "/"),
-//             ("/", "/"),
-//             ("a/", "a"),
-//             ("a/b", "b"),
-//             ("/a/b", "b"),
-//             ("C:/a", "a"),
-//             ("C:/", "C:"),
-//             ("C:", "C:"),
-//         ]
-//         .map(|(a, b)| {
-//             (
-//                 a.replace('/', String::from(std::path::MAIN_SEPARATOR).as_str()),
-//                 b.replace('/', String::from(std::path::MAIN_SEPARATOR).as_str()),
-//             )
-//         });
-//
-//         for (input, output) in tests {
-//             assert_eq!(pwd(input), output);
-//         }
-//     }
-// }

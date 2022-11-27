@@ -5,36 +5,9 @@ pub enum Repo {
     Dirty(Sync),
     Detached,
     Pending,
+    New,
     Error,
 }
-
-// #[derive(Debug, Copy, Clone, Eq, PartialEq)]
-// pub enum State {
-//     Bisect,
-//     Cherry,
-//     Merge,
-//     Rebase,
-//     Revert,
-//     Mailbox,
-// }
-//
-// impl From<git2::RepositoryState> for State {
-//     fn from(state: git2::RepositoryState) -> Self {
-//         use git2::RepositoryState;
-//
-//         match state {
-//             RepositoryState::Merge => Self::Merge,
-//             RepositoryState::Revert | RepositoryState::RevertSequence => Self::Revert,
-//             RepositoryState::CherryPick | RepositoryState::CherryPickSequence => Self::Cherry,
-//             RepositoryState::Bisect => Self::Bisect,
-//             RepositoryState::Rebase
-//             | RepositoryState::RebaseInteractive
-//             | RepositoryState::RebaseMerge => Self::Rebase,
-//             RepositoryState::ApplyMailbox | RepositoryState::ApplyMailboxOrRebase => Self::Mailbox,
-//             RepositoryState::Clean => {}
-//         }
-//     }
-// }
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum Sync {
@@ -43,6 +16,34 @@ pub enum Sync {
     Diverged,
     UpToDate,
     Local,
+}
+
+fn walk(walker: &mut git2::Revwalk, rev: &git2::Revspec) -> Option<usize> {
+    let to = rev.to()?;
+    let from = rev.from()?;
+    walker.hide(from.id()).ok()?;
+    walker.push(to.id()).ok()?;
+
+    Some(walker.take_while(Result::is_ok).count())
+}
+
+fn get_sync(
+    repo: &git2::Repository,
+    behind: &git2::Revspec,
+    ahead: &git2::Revspec,
+) -> Option<Sync> {
+    let mut walker = repo.revwalk().ok()?;
+
+    let behind = walk(&mut walker, behind)?;
+    walker.reset().ok()?;
+    let ahead = walk(&mut walker, ahead)?;
+
+    Some(match (behind, ahead) {
+        (0, 0) => Sync::UpToDate,
+        (_, 0) => Sync::Behind,
+        (0, _) => Sync::Ahead,
+        (_, _) => Sync::Diverged,
+    })
 }
 
 pub fn prompt(path: &std::path::PathBuf) -> Repo {
@@ -55,47 +56,22 @@ pub fn prompt(path: &std::path::PathBuf) -> Repo {
         return Repo::Pending;
     }
 
-    let head = match repo.head() {
-        Ok(head) => head,
-        Err(_) => return Repo::Error,
+    let sync = match repo.revparse("HEAD..@{upstream}").and_then(|behind| {
+        repo.revparse("@{upstream}..HEAD")
+            .map(|ahead| get_sync(&repo, &behind, &ahead))
+    }) {
+        Ok(Some(sync)) => sync,
+        Ok(None) => return Repo::Error,
+        Err(e) => match e.code() {
+            git2::ErrorCode::NotFound => match e.class() {
+                git2::ErrorClass::Config => Sync::Local,
+                git2::ErrorClass::Reference => return Repo::New,
+                _ => return Repo::Error,
+            },
+            git2::ErrorCode::InvalidSpec => return Repo::Detached,
+            _ => return Repo::Error,
+        },
     };
-
-    if !head.is_branch() {
-        return Repo::Detached;
-    }
-
-    let head = match head.name() {
-        Some(name) => name,
-        None => return Repo::Error,
-    };
-
-    let sync = match repo.branch_upstream_name(head) {
-        Ok(buf) => {
-            match buf.as_str() {
-                Some(upstream) => {
-                    match repo.revparse(format!("{head}..{upstream}").as_str()) {
-                        Ok(a) => {
-                            println!("to: {:?}, from: {:?}", a.to(), a.from());
-                            Sync::Behind
-                        }
-                        Err(e) => {
-                            println!("{e}");
-                            Sync::UpToDate
-                        }
-                    }
-                    // let r = repo.revwalk().unwrap();
-                    // r.take_while(Result::is_ok).map(Result::unwrap).map(|e| e
-                    // r.reset()
-                }
-                None => Sync::Diverged,
-            }
-        }
-        Err(_) => Sync::Local,
-    };
-
-    // let remote = repo
-    //     .branch_upstream_name(head.as_str())
-    //     .map(|b| b.as_str().map(String::from));
 
     let status = match repo.statuses(Some(
         git2::StatusOptions::new()
