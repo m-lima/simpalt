@@ -195,7 +195,9 @@ fn render_git(path: &std::path::PathBuf) -> &'static str {
 
 fn left(args: impl Iterator<Item = String>) {
     let (host, error, jobs) = args.fold((None, false, false), |acc, curr| {
-        if curr == "-e" {
+        if curr.is_empty() {
+            acc
+        } else if curr == "-e" {
             (acc.0, true, acc.2)
         } else if curr == "-j" {
             (acc.0, acc.1, true)
@@ -247,7 +249,7 @@ fn left(args: impl Iterator<Item = String>) {
             style!(reset),
             style!(bg = color!(black), "{host_padding}{prompt_pwd} "),
             "{prompt_git}",
-            style!(reset),
+            " "
         ),
         error = error,
         jobs = jobs,
