@@ -183,6 +183,7 @@ mod short {
                 style!(reset),
                 style!(bg = color!(black), "{host_padding}{pwd_string} "),
                 "{git_string}",
+                style!(reset),
                 " "
             ),
             error = error,
