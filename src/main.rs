@@ -66,6 +66,9 @@ macro_rules! symbol {
     (python) => {
         " " // " "
     };
+    (new) => {
+        ""
+    };
     (branch) => {
         ""
     };
@@ -87,8 +90,29 @@ macro_rules! symbol {
     (revert) => {
         ""
     };
+    (mailbox) => {
+        ""
+    };
+    (ahead) => {
+        ""
+    };
+    (behind) => {
+        ""
+    };
+    (local) => {
+        ""
+    };
+    (gone) => {
+        ""
+    };
+    (warn) => {
+        ""
+    };
     (div) => {
         ""
+    };
+    (div thin) => {
+        ""
     };
 }
 
@@ -111,113 +135,6 @@ fn left(args: impl Iterator<Item = String>) {
         long::prompt(host, error, jobs);
     } else {
         short::prompt(host, error, jobs);
-    }
-}
-
-mod long {
-    use crate::git::long as git;
-
-    pub fn prompt(host: Option<String>, error: bool, jobs: bool) {
-        let mut last = None;
-
-        if error {
-            div(&mut last, color!(black), color!(red));
-            print!(symbol!(error));
-        };
-
-        if jobs {
-            div(&mut last, color!(black), color!(cyan));
-            print!(symbol!(jobs));
-        }
-
-        if let Some(host) = host {
-            div(&mut last, color!(black), color!(reset));
-            print!("{host}");
-        };
-
-        if let Ok(venv) = std::env::var("VIRTUAL_ENV") {
-            div(&mut last, color!(cyan), color!(black));
-            if let Some(venv) = venv.rsplit(std::path::MAIN_SEPARATOR).next() {
-                print!("{venv}");
-            } else {
-                print!("{venv}");
-            }
-        };
-
-        let pwd = std::env::current_dir()
-            .or_else(|_| std::env::var("PWD").map(std::path::PathBuf::from))
-            .ok();
-
-        if let Some(ref pwd) = pwd {
-            if let Some(pwd) = pwd.to_str() {
-                div(&mut last, color!(blue), color!(black));
-                if let Some(pwd) = std::env::var("HOME")
-                    .ok()
-                    .and_then(|home| pwd.strip_prefix(&home))
-                {
-                    print!("~{pwd}");
-                } else {
-                    print!("{pwd}");
-                }
-            }
-        }
-
-        if let Some(ref pwd) = pwd {
-            match git::prompt(pwd) {
-                git::Repo::None => div(&mut last, color!(reset), color!(reset)),
-                git::Repo::Clean(head, _) => {
-                    div(&mut last, color!(green), color!(black));
-                    print!("{head}");
-                    // match sync {
-                    //     git::Sync::Behind(_) => todo!(),
-                    //     git::Sync::Ahead(_) => todo!(),
-                    //     git::Sync::Diverged { behind, ahead } => todo!(),
-                    //     git::Sync::UpToDate => todo!(),
-                    //     git::Sync::Local => todo!(),
-                    // }
-                }
-                git::Repo::Dirty(head, _) => {
-                    div(&mut last, color!(yellow), color!(black));
-                    print!("{head}");
-                    // match sync {
-                    //     git::Sync::Behind(_) => todo!(),
-                    //     git::Sync::Ahead(_) => todo!(),
-                    //     git::Sync::Diverged { behind, ahead } => todo!(),
-                    //     git::Sync::UpToDate => todo!(),
-                    //     git::Sync::Local => todo!(),
-                    // }
-                }
-                git::Repo::Detached(head) => {
-                    div(&mut last, color!(magenta), color!(black));
-                    print!(concat!(symbol!(ref), " {head}"), head = head);
-                }
-                git::Repo::Pending(head, _) => {
-                    div(&mut last, color!(cyan), color!(black));
-                    print!("{head}");
-                }
-                git::Repo::New => todo!(),
-                git::Repo::Error => todo!(),
-            }
-        };
-        div(&mut last, color!(reset), color!(reset));
-    }
-
-    fn div(last: &mut Option<&'static str>, to: &'static str, fg: &'static str) {
-        if let Some(last) = last {
-            if &to == last {
-                print!(" [3{fg}m");
-            } else {
-                print!(
-                    concat!(" [3{last}m[4{to}m", symbol!(div), "[3{fg}m "),
-                    last = last,
-                    to = to,
-                    fg = fg,
-                );
-            }
-        } else {
-            print!("[3{fg}m[4{to}m ");
-        }
-        *last = Some(to);
     }
 }
 
@@ -285,6 +202,9 @@ mod short {
             (default $state: expr) => {
                 concat!(symbol!(branch), prompt!($state))
             };
+            (warn $state: expr) => {
+                concat!(symbol!(warn), prompt!($state))
+            };
             ($sync: expr, $state: expr) => {
                 style!(fg = $sync, symbol!(branch) prompt!($state))
             };
@@ -309,8 +229,8 @@ mod short {
                 git::Sync::Diverged => prompt!(color!(magenta), color!(yellow)),
                 git::Sync::Local => prompt!(color!(blue), color!(yellow)),
             },
-            git::Repo::Pending => prompt!(default color!(cyan)),
-            git::Repo::New => prompt!(color!(cyan)),
+            git::Repo::Pending => prompt!(warn color!(cyan)),
+            git::Repo::Untracked => prompt!(default color!(cyan)),
             git::Repo::Detached => prompt!(default color!(magenta)),
             git::Repo::Error => prompt!(color!(red)),
         }
@@ -344,6 +264,182 @@ mod short {
             String::from(prefix.as_os_str().to_string_lossy())
         } else {
             String::from(std::path::MAIN_SEPARATOR)
+        }
+    }
+}
+
+mod long {
+    use crate::git::long as git;
+
+    pub fn prompt(host: Option<String>, error: bool, jobs: bool) {
+        let mut last = None;
+
+        if error {
+            div(&mut last, color!(black), color!(red));
+            print!(symbol!(error));
+        };
+
+        if jobs {
+            div(&mut last, color!(black), color!(cyan));
+            print!(symbol!(jobs));
+        }
+
+        if let Some(host) = host {
+            div(&mut last, color!(black), color!(reset));
+            print!("{host}");
+        };
+
+        if let Ok(venv) = std::env::var("VIRTUAL_ENV") {
+            div(&mut last, color!(cyan), color!(black));
+            if let Some(venv) = venv.rsplit(std::path::MAIN_SEPARATOR).next() {
+                print!("{venv}");
+            } else {
+                print!("{venv}");
+            }
+        };
+
+        let pwd = std::env::current_dir()
+            .or_else(|_| std::env::var("PWD").map(std::path::PathBuf::from))
+            .ok();
+
+        if let Some(ref pwd) = pwd {
+            if let Some(pwd) = pwd.to_str() {
+                div(&mut last, color!(blue), color!(black));
+                if let Some(pwd) = std::env::var("HOME")
+                    .ok()
+                    .and_then(|home| pwd.strip_prefix(&home))
+                {
+                    print!("~{pwd}");
+                } else {
+                    print!("{pwd}");
+                }
+            }
+        }
+
+        if let Some(ref pwd) = pwd {
+            match git::prompt(pwd) {
+                git::Repo::None => div(&mut last, color!(reset), color!(reset)),
+                git::Repo::Error => {
+                    div(&mut last, color!(red), color!(black));
+                    print!("!");
+                }
+                git::Repo::Regular(head, sync, changes) => {
+                    if changes.clean() {
+                        render_sync(&mut last, sync);
+                        div(&mut last, color!(green), color!(black));
+                        print!(concat!(symbol!(branch), "{head}"), head = head);
+                    } else {
+                        render_changes(&mut last, changes);
+                        if !matches!(
+                            sync,
+                            git::Sync::Tracked {
+                                ahead: 0,
+                                behind: 0
+                            }
+                        ) {
+                            div(&mut last, color!([232]), color!([242]));
+                            print!(symbol!(div thin));
+                            render_sync(&mut last, sync);
+                        }
+                        div(&mut last, color!(yellow), color!(black));
+                        print!(concat!(symbol!(branch), "{head}"), head = head);
+                    }
+                }
+                git::Repo::Detached(head, changes) => {
+                    render_changes(&mut last, changes);
+                    div(&mut last, color!(magenta), color!(black));
+                    print!(concat!(symbol!(ref), " {head}"), head = head);
+                }
+                git::Repo::Pending(head, pending, changes) => {
+                    render_changes(&mut last, changes);
+                    div(&mut last, color!(cyan), color!(black));
+                    print!(
+                        concat!(symbol!(branch), "{head} {pending}"),
+                        head = head,
+                        pending = pending_symbol(pending),
+                    );
+                }
+                git::Repo::New(changes) => {
+                    render_changes(&mut last, changes);
+                    div(&mut last, color!(cyan), color!(black));
+                    print!(symbol!(new));
+                }
+            }
+        };
+        div(&mut last, color!(reset), color!(reset));
+    }
+
+    fn div(last: &mut Option<&'static str>, to: &'static str, fg: &'static str) {
+        if let Some(last) = last {
+            if &to == last {
+                print!(" [3{fg}m");
+            } else {
+                print!(
+                    concat!(" [3{last}m[4{to}m", symbol!(div), "[3{fg}m "),
+                    last = last,
+                    to = to,
+                    fg = fg,
+                );
+            }
+        } else {
+            print!("[3{fg}m[4{to}m ");
+        }
+        *last = Some(to);
+    }
+
+    fn render_changes(last: &mut Option<&'static str>, changes: git::Changes) {
+        if changes.added > 0 {
+            div(last, color!([232]), color!(green));
+            print!("+{added}", added = changes.added);
+        }
+
+        if changes.removed > 0 {
+            div(last, color!([232]), color!(red));
+            print!("-{removed}", removed = changes.removed);
+        }
+
+        if changes.modified > 0 {
+            div(last, color!([232]), color!(blue));
+            print!("~{modified}", modified = changes.modified);
+        }
+
+        if changes.conflicted > 0 {
+            div(last, color!([232]), color!(magenta));
+            print!("!{conflicted}", conflicted = changes.conflicted);
+        }
+    }
+
+    fn render_sync(last: &mut Option<&'static str>, sync: git::Sync) {
+        match sync {
+            git::Sync::Local => {
+                div(last, color!([232]), color!(cyan));
+                print!(concat!(symbol!(local), " local"));
+            }
+            git::Sync::Gone => {
+                div(last, color!([232]), color!(magenta));
+                print!(concat!(symbol!(gone), " gone"));
+            }
+            git::Sync::Tracked { ahead, behind } => {
+                if ahead > 0 {
+                    div(last, color!([232]), color!(yellow));
+                    print!(concat!(symbol!(ahead), "{ahead}"), ahead = ahead);
+                }
+                if behind > 0 {
+                    div(last, color!([232]), color!(red));
+                    print!(concat!(symbol!(behind), "{behind}"), behind = behind);
+                }
+            }
+        }
+    }
+
+    const fn pending_symbol(pending: git::Pending) -> &'static str {
+        match pending {
+            git::Pending::Merge => symbol!(merge),
+            git::Pending::Revert => symbol!(revert),
+            git::Pending::Cherry => symbol!(cherry),
+            git::Pending::Bisect => symbol!(bisect),
+            git::Pending::Rebase => symbol!(rebase),
+            git::Pending::Mailbox => symbol!(mailbox),
         }
     }
 }
