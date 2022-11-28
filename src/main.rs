@@ -279,6 +279,12 @@ mod short {
 mod long {
     use crate::git::long as git;
 
+    macro_rules! dwrite {
+        ($out: ident, $($arg:tt)*) => {
+            drop(write!($out.0, $($arg)*))
+        }
+    }
+
     pub fn prompt(host: Option<String>, error: bool, jobs: bool) {
         Prompt(std::io::stdout().lock()).print(host, error, jobs);
     }
@@ -287,29 +293,35 @@ mod long {
 
     impl<W: std::io::Write> Prompt<W> {
         fn print(&mut self, host: Option<String>, error: bool, jobs: bool) {
+            macro_rules! print {
+                ($($arg:tt)*) => {
+                    dwrite!(self, $($arg)*)
+                }
+            }
+
             let mut last = None;
 
             if error {
                 self.div(&mut last, color!(black), color!(red));
-                drop(write!(self.0, symbol!(error)));
+                print!(symbol!(error));
             };
 
             if jobs {
                 self.div(&mut last, color!(black), color!(cyan));
-                drop(write!(self.0, symbol!(jobs)));
+                print!(symbol!(jobs));
             }
 
             if let Some(host) = host {
                 self.div(&mut last, color!(black), color!(reset));
-                drop(write!(self.0, "{host}"));
+                print!("{host}");
             };
 
             if let Ok(venv) = std::env::var("VIRTUAL_ENV") {
                 self.div(&mut last, color!(cyan), color!(black));
                 if let Some(venv) = venv.rsplit(std::path::MAIN_SEPARATOR).next() {
-                    drop(write!(self.0, "{venv}"));
+                    print!("{venv}");
                 } else {
-                    drop(write!(self.0, "{venv}"));
+                    print!("{venv}");
                 }
             };
 
@@ -324,9 +336,9 @@ mod long {
                         .ok()
                         .and_then(|home| pwd.strip_prefix(&home))
                     {
-                        drop(write!(self.0, "~{pwd}"));
+                        print!("~{pwd}");
                     } else {
-                        drop(write!(self.0, "{pwd}"));
+                        print!("{pwd}");
                     }
                 }
             }
@@ -336,17 +348,13 @@ mod long {
                     git::Repo::None => self.div(&mut last, color!(reset), color!(reset)),
                     git::Repo::Error => {
                         self.div(&mut last, color!(red), color!(black));
-                        drop(write!(self.0, "!"));
+                        print!("!");
                     }
                     git::Repo::Regular(head, sync, changes) => {
                         if changes.clean() {
                             self.render_sync(&mut last, sync);
                             self.div(&mut last, color!(green), color!(black));
-                            drop(write!(
-                                self.0,
-                                concat!(symbol!(branch), "{head}"),
-                                head = head
-                            ));
+                            print!(concat!(symbol!(branch), "{head}"), head = head);
                         } else {
                             self.render_changes(&mut last, changes);
                             if !matches!(
@@ -357,36 +365,31 @@ mod long {
                                 }
                             ) {
                                 self.div(&mut last, color!(black), color!(reset));
-                                drop(write!(self.0, symbol!(div thin)));
+                                print!(symbol!(div thin));
                                 self.render_sync(&mut last, sync);
                             }
                             self.div(&mut last, color!(yellow), color!(black));
-                            drop(write!(
-                                self.0,
-                                concat!(symbol!(branch), "{head}"),
-                                head = head
-                            ));
+                            print!(concat!(symbol!(branch), "{head}"), head = head);
                         }
                     }
                     git::Repo::Detached(head, changes) => {
                         self.render_changes(&mut last, changes);
                         self.div(&mut last, color!(magenta), color!(black));
-                        drop(write!(self.0, concat!(symbol!(ref), "{head}"), head = head));
+                        print!(concat!(symbol!(ref), "{head}"), head = head);
                     }
                     git::Repo::Pending(head, pending, changes) => {
                         self.render_changes(&mut last, changes);
                         self.div(&mut last, color!(cyan), color!(black));
-                        drop(write!(
-                            self.0,
+                        print!(
                             concat!(symbol!(branch), "{head} {pending}"),
                             head = head,
                             pending = pending_symbol(pending),
-                        ));
+                        );
                     }
                     git::Repo::New(changes) => {
                         self.render_changes(&mut last, changes);
                         self.div(&mut last, color!(cyan), color!(black));
-                        drop(write!(self.0, symbol!(new)));
+                        print!(symbol!(new));
                     }
                 }
             };
@@ -397,18 +400,18 @@ mod long {
         fn div(&mut self, last: &mut Option<&'static str>, to: &'static str, fg: &'static str) {
             if let Some(last) = last {
                 if &to == last {
-                    drop(write!(self.0, " [3{fg}m"));
+                    dwrite!(self, " [3{fg}m");
                 } else {
-                    drop(write!(
-                        self.0,
+                    dwrite!(
+                        self,
                         concat!(" [3{last}m[4{to}m", symbol!(div), "[3{fg}m "),
                         last = last,
                         to = to,
                         fg = fg,
-                    ));
+                    );
                 }
             } else {
-                drop(write!(self.0, "[3{fg}m[4{to}m "));
+                dwrite!(self, "[3{fg}m[4{to}m ");
             }
             *last = Some(to);
         }
@@ -416,26 +419,22 @@ mod long {
         fn render_changes(&mut self, last: &mut Option<&'static str>, changes: git::Changes) {
             if changes.added > 0 {
                 self.div(last, color!(black), color!(green));
-                drop(write!(self.0, "+{added}", added = changes.added));
+                dwrite!(self, "+{added}", added = changes.added);
             }
 
             if changes.removed > 0 {
                 self.div(last, color!(black), color!(red));
-                drop(write!(self.0, "-{removed}", removed = changes.removed));
+                dwrite!(self, "-{removed}", removed = changes.removed);
             }
 
             if changes.modified > 0 {
                 self.div(last, color!(black), color!(blue));
-                drop(write!(self.0, "~{modified}", modified = changes.modified));
+                dwrite!(self, "~{modified}", modified = changes.modified);
             }
 
             if changes.conflicted > 0 {
                 self.div(last, color!(black), color!(magenta));
-                drop(write!(
-                    self.0,
-                    "!{conflicted}",
-                    conflicted = changes.conflicted
-                ));
+                dwrite!(self, "!{conflicted}", conflicted = changes.conflicted);
             }
         }
 
@@ -443,28 +442,20 @@ mod long {
             match sync {
                 git::Sync::Local => {
                     self.div(last, color!(black), color!(cyan));
-                    drop(write!(self.0, concat!(symbol!(local), " local")));
+                    dwrite!(self, concat!(symbol!(local), " local"));
                 }
                 git::Sync::Gone => {
                     self.div(last, color!(black), color!(magenta));
-                    drop(write!(self.0, concat!(symbol!(gone), " gone")));
+                    dwrite!(self, concat!(symbol!(gone), " gone"));
                 }
                 git::Sync::Tracked { ahead, behind } => {
                     if ahead > 0 {
                         self.div(last, color!(black), color!(yellow));
-                        drop(write!(
-                            self.0,
-                            concat!(symbol!(ahead), "{ahead}"),
-                            ahead = ahead
-                        ));
+                        dwrite!(self, concat!(symbol!(ahead), "{ahead}"), ahead = ahead);
                     }
                     if behind > 0 {
                         self.div(last, color!(black), color!(red));
-                        drop(write!(
-                            self.0,
-                            concat!(symbol!(behind), "{behind}"),
-                            behind = behind
-                        ));
+                        dwrite!(self, concat!(symbol!(behind), "{behind}"), behind = behind);
                     }
                 }
             }
