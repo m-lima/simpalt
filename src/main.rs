@@ -22,28 +22,28 @@ macro_rules! style {
 
 macro_rules! color {
     (black) => {
-        0
+        "0"
     };
     (red) => {
-        1
+        "1"
     };
     (green) => {
-        2
+        "2"
     };
     (yellow) => {
-        3
+        "3"
     };
     (blue) => {
-        4
+        "4"
     };
     (magenta) => {
-        5
+        "5"
     };
     (cyan) => {
-        6
+        "6"
     };
     (white) => {
-        7
+        "7"
     };
     ([$param: literal]) => {
         concat!("8;5;", $param)
@@ -52,7 +52,7 @@ macro_rules! color {
         concat!("8;2;", $r, ";", $g, ";", $b)
     };
     (reset) => {
-        9
+        "9"
     };
 }
 
@@ -68,6 +68,9 @@ macro_rules! symbol {
     };
     (branch) => {
         ""
+    };
+    (ref) => {
+        "➦"
     };
     (merge) => {
         ""
@@ -89,154 +92,260 @@ macro_rules! symbol {
     };
 }
 
-macro_rules! div {
-    (from = $from: expr, to = $to: expr) => {
-        style!(fg = $from, bg = $to, symbol!(div))
-    };
-
-    (from = $from: expr, by = $by: expr, to = $to: expr) => {
-        style!(fg = $from, bg = $by, symbol!(div) style!(fg = $by, bg = $to, symbol!(div)))
-    };
-}
-
-fn render_pwd(path: &std::path::PathBuf) -> String {
-    if let Ok(home) = std::env::var("HOME").map(std::path::PathBuf::from) {
-        if home.eq(path) {
-            String::from("~")
-        } else {
-            let (prefix, components) =
-                path.components()
-                    .fold((None, vec![]), |(prefix, mut list), curr| match curr {
-                        std::path::Component::Prefix(prefix) => (Some(prefix), list),
-                        std::path::Component::RootDir | std::path::Component::Normal(_) => {
-                            list.push(curr);
-                            (prefix, list)
-                        }
-                        std::path::Component::ParentDir => {
-                            list.pop();
-                            (prefix, list)
-                        }
-                        std::path::Component::CurDir => (prefix, list),
-                    });
-
-            if let Some(std::path::Component::Normal(path)) = components.last() {
-                String::from(path.to_string_lossy())
-            } else if let Some(prefix) = prefix {
-                String::from(prefix.as_os_str().to_string_lossy())
-            } else {
-                String::from(std::path::MAIN_SEPARATOR)
-            }
-        }
-    } else {
-        println!(
-            style!(fg = color!(red), "`HOME` environment variable not available" style!(reset))
-        );
-        path.to_str().map(String::from).unwrap()
-    }
-}
-
-fn render_git(path: &std::path::PathBuf) -> &'static str {
-    macro_rules! git_prompt {
-        ($sync: expr, $state: expr) => {
-            style!(fg = $sync, symbol!(branch) git_prompt!($state))
-        };
-        (default $state: expr) => {
-            concat!(symbol!(branch), div!(from = color!(black), by = $state, to = color!(reset)))
-        };
-        ($state: expr) => {
-            div!(from = color!(black), by = $state, to = color!(reset))
-        };
-    }
-
-    match git::prompt(path) {
-        git::Repo::None => div!(from = color!(black), by = color!(blue), to = color!(reset)),
-        git::Repo::Clean(sync) => match sync {
-            git::Sync::UpToDate => git_prompt!(default color!(green)),
-            git::Sync::Behind => git_prompt!(color!(red), color!(green)),
-            git::Sync::Ahead => git_prompt!(color!(yellow), color!(green)),
-            git::Sync::Diverged => git_prompt!(color!(magenta), color!(green)),
-            git::Sync::Local => git_prompt!(color!(blue), color!(green)),
-        },
-        git::Repo::Dirty(sync) => match sync {
-            git::Sync::UpToDate => git_prompt!(default color!(yellow)),
-            git::Sync::Behind => git_prompt!(color!(red), color!(yellow)),
-            git::Sync::Ahead => git_prompt!(color!(yellow), color!(yellow)),
-            git::Sync::Diverged => git_prompt!(color!(magenta), color!(yellow)),
-            git::Sync::Local => git_prompt!(color!(blue), color!(yellow)),
-        },
-        git::Repo::Detached => git_prompt!(color!(magenta)),
-        git::Repo::Pending => git_prompt!(color!(cyan)),
-        git::Repo::New => git_prompt!(color!(white)),
-        git::Repo::Error => git_prompt!(color!(red)),
-    }
-}
-
 fn left(args: impl Iterator<Item = String>) {
-    let (host, error, jobs) = args.fold((None, false, false), |acc, curr| {
+    let (host, error, jobs, long) = args.fold((None, false, false, false), |acc, curr| {
         if curr.is_empty() {
             acc
         } else if curr == "-e" {
-            (acc.0, true, acc.2)
+            (acc.0, true, acc.2, acc.3)
         } else if curr == "-j" {
-            (acc.0, acc.1, true)
+            (acc.0, acc.1, true, acc.3)
+        } else if curr == "-l" {
+            (acc.0, acc.1, acc.2, true)
         } else {
-            (Some(curr), acc.1, acc.2)
+            (Some(curr), acc.1, acc.2, acc.3)
         }
     });
 
-    let (host, host_padding) = host.map_or_else(|| (String::new(), ""), |host| (host, " "));
-
-    let error = if error {
-        style!(fg = color!(red), symbol!(error) " ")
+    if long {
+        long::prompt(host, error, jobs);
     } else {
-        ""
-    };
+        short::prompt(host, error, jobs);
+    }
+}
 
-    let jobs = if jobs {
-        style!(fg = color!(cyan), symbol!(jobs) " ")
-    } else {
-        ""
-    };
+mod long {
+    use crate::git::long as git;
 
-    let venv = if std::env::var("VIRTUAL_ENV").is_ok() {
-        style!(fg = color!(green), symbol!(python))
-    } else {
-        ""
-    };
+    pub fn prompt(host: Option<String>, error: bool, jobs: bool) {
+        let mut last = None;
 
-    let pwd = std::env::current_dir()
-        .or_else(|_| std::env::var("PWD").map(std::path::PathBuf::from))
-        .ok();
+        if error {
+            div(&mut last, color!(black), color!(red));
+            print!(symbol!(error));
+        };
 
-    let prompt_pwd = if let Some(ref pwd) = pwd {
-        render_pwd(pwd)
-    } else {
-        String::new()
-    };
+        if jobs {
+            div(&mut last, color!(black), color!(cyan));
+            print!(symbol!(jobs));
+        }
 
-    let prompt_git = if let Some(ref pwd) = pwd {
-        render_git(pwd)
-    } else {
-        style!(fg = color!(black), bg = color!(reset), symbol!(div))
-    };
+        if let Some(host) = host {
+            div(&mut last, color!(black), color!(reset));
+            print!("{host}");
+        };
 
-    print!(
-        concat!(
-            style!(bg = color!(black), " {error}{jobs}{venv}"),
-            style!(fg = color!(reset), "{host}"),
-            style!(reset),
-            style!(bg = color!(black), "{host_padding}{prompt_pwd} "),
-            "{prompt_git}",
-            " "
-        ),
-        error = error,
-        jobs = jobs,
-        venv = venv,
-        host_padding = host_padding,
-        host = host,
-        prompt_pwd = prompt_pwd,
-        prompt_git = prompt_git,
-    );
+        if let Ok(venv) = std::env::var("VIRTUAL_ENV") {
+            div(&mut last, color!(cyan), color!(black));
+            if let Some(venv) = venv.rsplit(std::path::MAIN_SEPARATOR).next() {
+                print!("{venv}");
+            } else {
+                print!("{venv}");
+            }
+        };
+
+        let pwd = std::env::current_dir()
+            .or_else(|_| std::env::var("PWD").map(std::path::PathBuf::from))
+            .ok();
+
+        if let Some(ref pwd) = pwd {
+            if let Some(pwd) = pwd.to_str() {
+                div(&mut last, color!(blue), color!(black));
+                if let Some(pwd) = std::env::var("HOME")
+                    .ok()
+                    .and_then(|home| pwd.strip_prefix(&home))
+                {
+                    print!("~{pwd}");
+                } else {
+                    print!("{pwd}");
+                }
+            }
+        }
+
+        if let Some(ref pwd) = pwd {
+            match git::prompt(pwd) {
+                git::Repo::None => div(&mut last, color!(reset), color!(reset)),
+                git::Repo::Clean(head, _) => {
+                    div(&mut last, color!(green), color!(black));
+                    print!("{head}");
+                    // match sync {
+                    //     git::Sync::Behind(_) => todo!(),
+                    //     git::Sync::Ahead(_) => todo!(),
+                    //     git::Sync::Diverged { behind, ahead } => todo!(),
+                    //     git::Sync::UpToDate => todo!(),
+                    //     git::Sync::Local => todo!(),
+                    // }
+                }
+                git::Repo::Dirty(head, _) => {
+                    div(&mut last, color!(yellow), color!(black));
+                    print!("{head}");
+                    // match sync {
+                    //     git::Sync::Behind(_) => todo!(),
+                    //     git::Sync::Ahead(_) => todo!(),
+                    //     git::Sync::Diverged { behind, ahead } => todo!(),
+                    //     git::Sync::UpToDate => todo!(),
+                    //     git::Sync::Local => todo!(),
+                    // }
+                }
+                git::Repo::Detached(head) => {
+                    div(&mut last, color!(magenta), color!(black));
+                    print!(concat!(symbol!(ref), " {head}"), head = head);
+                }
+                git::Repo::Pending(head, _) => {
+                    div(&mut last, color!(cyan), color!(black));
+                    print!("{head}");
+                }
+                git::Repo::New => todo!(),
+                git::Repo::Error => todo!(),
+            }
+        };
+        div(&mut last, color!(reset), color!(reset));
+    }
+
+    fn div(last: &mut Option<&'static str>, to: &'static str, fg: &'static str) {
+        if let Some(last) = last {
+            if &to == last {
+                print!(" [3{fg}m");
+            } else {
+                print!(
+                    concat!(" [3{last}m[4{to}m", symbol!(div), "[3{fg}m "),
+                    last = last,
+                    to = to,
+                    fg = fg,
+                );
+            }
+        } else {
+            print!("[3{fg}m[4{to}m ");
+        }
+        *last = Some(to);
+    }
+}
+
+mod short {
+    pub fn prompt(host: Option<String>, error: bool, jobs: bool) {
+        let error = if error {
+            style!(fg = color!(red), symbol!(error) " ")
+        } else {
+            ""
+        };
+
+        let jobs = if jobs {
+            style!(fg = color!(cyan), symbol!(jobs) " ")
+        } else {
+            ""
+        };
+
+        let venv = if std::env::var("VIRTUAL_ENV").is_ok() {
+            style!(fg = color!(green), symbol!(python))
+        } else {
+            ""
+        };
+
+        let (host, host_padding) = host.map_or_else(|| (String::new(), ""), |host| (host, " "));
+
+        let pwd = std::env::current_dir()
+            .or_else(|_| std::env::var("PWD").map(std::path::PathBuf::from))
+            .ok();
+
+        let pwd_string = if let Some(ref pwd) = pwd {
+            pwd_string(pwd)
+        } else {
+            String::new()
+        };
+
+        let git_string = if let Some(ref pwd) = pwd {
+            git_string(pwd)
+        } else {
+            style!(fg = color!(black), bg = color!(reset), symbol!(div))
+        };
+
+        print!(
+            concat!(
+                style!(bg = color!(black), " {error}{jobs}{venv}"),
+                style!(fg = color!(reset), "{host}"),
+                style!(reset),
+                style!(bg = color!(black), "{host_padding}{pwd_string} "),
+                "{git_string}",
+                " "
+            ),
+            error = error,
+            jobs = jobs,
+            venv = venv,
+            host_padding = host_padding,
+            host = host,
+            pwd_string = pwd_string,
+            git_string = git_string,
+        );
+    }
+
+    fn git_string(path: &std::path::PathBuf) -> &'static str {
+        use crate::git::short as git;
+
+        macro_rules! prompt {
+            (default $state: expr) => {
+                concat!(symbol!(branch), prompt!($state))
+            };
+            ($sync: expr, $state: expr) => {
+                style!(fg = $sync, symbol!(branch) prompt!($state))
+            };
+            ($state: expr) => {
+                style!(fg = color!(black), bg = $state, symbol!(div) style!(fg = $state, bg = color!(reset), symbol!(div)))
+            };
+        }
+
+        match git::prompt(path) {
+            git::Repo::None => prompt!(color!(blue)),
+            git::Repo::Clean(sync) => match sync {
+                git::Sync::UpToDate => prompt!(default color!(green)),
+                git::Sync::Behind => prompt!(color!(red), color!(green)),
+                git::Sync::Ahead => prompt!(color!(yellow), color!(green)),
+                git::Sync::Diverged => prompt!(color!(magenta), color!(green)),
+                git::Sync::Local => prompt!(color!(blue), color!(green)),
+            },
+            git::Repo::Dirty(sync) => match sync {
+                git::Sync::UpToDate => prompt!(default color!(yellow)),
+                git::Sync::Behind => prompt!(color!(red), color!(yellow)),
+                git::Sync::Ahead => prompt!(color!(yellow), color!(yellow)),
+                git::Sync::Diverged => prompt!(color!(magenta), color!(yellow)),
+                git::Sync::Local => prompt!(color!(blue), color!(yellow)),
+            },
+            git::Repo::Pending => prompt!(default color!(cyan)),
+            git::Repo::New => prompt!(color!(cyan)),
+            git::Repo::Detached => prompt!(default color!(magenta)),
+            git::Repo::Error => prompt!(color!(red)),
+        }
+    }
+
+    fn pwd_string(path: &std::path::PathBuf) -> String {
+        if let Ok(home) = std::env::var("HOME").map(std::path::PathBuf::from) {
+            if home.eq(path) {
+                return String::from("~");
+            }
+        }
+
+        let (prefix, components) =
+            path.components()
+                .fold((None, vec![]), |(prefix, mut list), curr| match curr {
+                    std::path::Component::Prefix(prefix) => (Some(prefix), list),
+                    std::path::Component::RootDir | std::path::Component::Normal(_) => {
+                        list.push(curr);
+                        (prefix, list)
+                    }
+                    std::path::Component::ParentDir => {
+                        list.pop();
+                        (prefix, list)
+                    }
+                    std::path::Component::CurDir => (prefix, list),
+                });
+
+        if let Some(std::path::Component::Normal(path)) = components.last() {
+            String::from(path.to_string_lossy())
+        } else if let Some(prefix) = prefix {
+            String::from(prefix.as_os_str().to_string_lossy())
+        } else {
+            String::from(std::path::MAIN_SEPARATOR)
+        }
+    }
 }
 
 fn right() {
@@ -261,7 +370,7 @@ fn help(bin: Option<String>) {
         })
         .unwrap_or_else(|| String::from(env!("CARGO_BIN_NAME")));
 
-    println!("Usage: {bin} <COMMAND> [HOST|-e|-j]*",);
+    println!("Usage: {bin} <COMMAND> [HOST|-e|-j|-l]*",);
     println!();
     println!("Commands:");
     println!("  r  Generate right side prompt");
@@ -272,6 +381,7 @@ fn help(bin: Option<String>) {
     println!("  HOST  Symbol to be used as host (can contain ansii escape codes)");
     println!("  -e    Last command was an error");
     println!("  -j    There are background processes running");
+    println!("  -l    Use the long format");
 }
 
 fn main() {
