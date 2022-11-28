@@ -337,7 +337,7 @@ mod long {
                                 behind: 0
                             }
                         ) {
-                            div(&mut last, color!([232]), color!([242]));
+                            div(&mut last, color!(black), color!(reset));
                             print!(symbol!(div thin));
                             render_sync(&mut last, sync);
                         }
@@ -348,7 +348,7 @@ mod long {
                 git::Repo::Detached(head, changes) => {
                     render_changes(&mut last, changes);
                     div(&mut last, color!(magenta), color!(black));
-                    print!(concat!(symbol!(ref), " {head}"), head = head);
+                    print!(concat!(symbol!(ref), "{head}"), head = head);
                 }
                 git::Repo::Pending(head, pending, changes) => {
                     render_changes(&mut last, changes);
@@ -389,22 +389,22 @@ mod long {
 
     fn render_changes(last: &mut Option<&'static str>, changes: git::Changes) {
         if changes.added > 0 {
-            div(last, color!([232]), color!(green));
+            div(last, color!(black), color!(green));
             print!("+{added}", added = changes.added);
         }
 
         if changes.removed > 0 {
-            div(last, color!([232]), color!(red));
+            div(last, color!(black), color!(red));
             print!("-{removed}", removed = changes.removed);
         }
 
         if changes.modified > 0 {
-            div(last, color!([232]), color!(blue));
+            div(last, color!(black), color!(blue));
             print!("~{modified}", modified = changes.modified);
         }
 
         if changes.conflicted > 0 {
-            div(last, color!([232]), color!(magenta));
+            div(last, color!(black), color!(magenta));
             print!("!{conflicted}", conflicted = changes.conflicted);
         }
     }
@@ -412,20 +412,20 @@ mod long {
     fn render_sync(last: &mut Option<&'static str>, sync: git::Sync) {
         match sync {
             git::Sync::Local => {
-                div(last, color!([232]), color!(cyan));
+                div(last, color!(black), color!(cyan));
                 print!(concat!(symbol!(local), " local"));
             }
             git::Sync::Gone => {
-                div(last, color!([232]), color!(magenta));
+                div(last, color!(black), color!(magenta));
                 print!(concat!(symbol!(gone), " gone"));
             }
             git::Sync::Tracked { ahead, behind } => {
                 if ahead > 0 {
-                    div(last, color!([232]), color!(yellow));
+                    div(last, color!(black), color!(yellow));
                     print!(concat!(symbol!(ahead), "{ahead}"), ahead = ahead);
                 }
                 if behind > 0 {
-                    div(last, color!([232]), color!(red));
+                    div(last, color!(black), color!(red));
                     print!(concat!(symbol!(behind), "{behind}"), behind = behind);
                 }
             }
