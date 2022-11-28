@@ -170,7 +170,7 @@ prompt_git() {
       fi
 
       if ! $(git symbolic-ref HEAD &> /dev/null); then
-        ref="➦ ${ref/.../}"
+        ref="➦ $(git rev-parse --short HEAD 2> /dev/null)"
       elif is_wip; then
         ref="↺ $ref"
       else
