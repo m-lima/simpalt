@@ -493,6 +493,19 @@ fn right() {
     );
 }
 
+fn escape(mut args: impl Iterator<Item = String>) {
+    if let Some(arg) = args.next() {
+        let regex = regex::Regex::new(r#"(\[[0-9;]*m)"#).unwrap();
+
+        print!(
+            "{}",
+            regex.replace_all(arg.as_str(), |cap: &regex::Captures<'_>| {
+                format!("%{{{escape}%}}", escape = &cap[1])
+            })
+        );
+    }
+}
+
 fn help(bin: Option<String>) {
     let bin = bin
         .map(std::path::PathBuf::from)
@@ -506,6 +519,7 @@ fn help(bin: Option<String>) {
     println!("Usage: {bin} <COMMAND> [HOST|-e|-j|-l]*",);
     println!();
     println!("Commands:");
+    println!("  e  Escape string for ZSH");
     println!("  r  Generate right side prompt");
     println!("  l  Generate left side prompt");
     println!("  h  Show this help message");
@@ -525,6 +539,7 @@ fn main() {
     match command.as_deref() {
         Some("r") => right(),
         Some("l") => left(args),
+        Some("e") => escape(args),
         _ => help(bin),
     }
 }
