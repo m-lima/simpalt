@@ -18,7 +18,7 @@ pub enum Sync {
     Local,
 }
 
-fn walk(walker: &mut git2::Revwalk, rev: &git2::Revspec) -> Option<usize> {
+fn walk(walker: &mut git2::Revwalk<'_>, rev: &git2::Revspec<'_>) -> Option<usize> {
     let to = rev.to()?;
     let from = rev.from()?;
     walker.hide(from.id()).ok()?;
@@ -29,8 +29,8 @@ fn walk(walker: &mut git2::Revwalk, rev: &git2::Revspec) -> Option<usize> {
 
 fn get_sync(
     repo: &git2::Repository,
-    behind: &git2::Revspec,
-    ahead: &git2::Revspec,
+    behind: &git2::Revspec<'_>,
+    ahead: &git2::Revspec<'_>,
 ) -> Option<Sync> {
     let mut walker = repo.revwalk().ok()?;
 

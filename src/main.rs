@@ -1,3 +1,5 @@
+#![deny(warnings, rust_2018_idioms, clippy::pedantic)]
+
 mod git;
 
 macro_rules! style {
@@ -134,62 +136,38 @@ fn render_pwd(path: &std::path::PathBuf) -> String {
 }
 
 fn render_git(path: &std::path::PathBuf) -> &'static str {
+    macro_rules! git_prompt {
+        ($sync: expr, $state: expr) => {
+            style!(fg = $sync, symbol!(branch) git_prompt!($state))
+        };
+        (default $state: expr) => {
+            concat!(symbol!(branch), div!(from = color!(black), by = $state, to = color!(reset)))
+        };
+        ($state: expr) => {
+            div!(from = color!(black), by = $state, to = color!(reset))
+        };
+    }
+
     match git::prompt(path) {
         git::Repo::None => div!(from = color!(black), by = color!(blue), to = color!(reset)),
         git::Repo::Clean(sync) => match sync {
-            git::Sync::UpToDate => {
-                concat!(
-                    symbol!(branch),
-                    div!(from = color!(black), by = color!(green), to = color!(reset))
-                )
-            }
-            git::Sync::Behind => {
-                style!(fg = color!(red), symbol!(branch) div!(from = color!(black), by = color!(green), to = color!(reset)))
-            }
-            git::Sync::Ahead => {
-                style!(fg = color!(yellow), symbol!(branch) div!(from = color!(black), by = color!(green), to = color!(reset)))
-            }
-            git::Sync::Diverged => {
-                style!(fg = color!(magenta), symbol!(branch) div!(from = color!(black), by = color!(green), to = color!(reset)))
-            }
-            git::Sync::Local => {
-                style!(fg = color!(blue), symbol!(branch) div!(from = color!(black), by = color!(green), to = color!(reset)))
-            }
+            git::Sync::UpToDate => git_prompt!(default color!(green)),
+            git::Sync::Behind => git_prompt!(color!(red), color!(green)),
+            git::Sync::Ahead => git_prompt!(color!(yellow), color!(green)),
+            git::Sync::Diverged => git_prompt!(color!(magenta), color!(green)),
+            git::Sync::Local => git_prompt!(color!(blue), color!(green)),
         },
         git::Repo::Dirty(sync) => match sync {
-            git::Sync::UpToDate => {
-                concat!(
-                    symbol!(branch),
-                    div!(
-                        from = color!(black),
-                        by = color!(yellow),
-                        to = color!(reset)
-                    )
-                )
-            }
-            git::Sync::Behind => {
-                style!(fg = color!(red), symbol!(branch) div!(from = color!(black), by = color!(yellow), to = color!(reset)))
-            }
-            git::Sync::Ahead => {
-                style!(fg = color!(yellow), symbol!(branch) div!(from = color!(black), by = color!(yellow), to = color!(reset)))
-            }
-            git::Sync::Diverged => {
-                style!(fg = color!(magenta), symbol!(branch) div!(from = color!(black), by = color!(yellow), to = color!(reset)))
-            }
-            git::Sync::Local => {
-                style!(fg = color!(blue), symbol!(branch) div!(from = color!(black), by = color!(yellow), to = color!(reset)))
-            }
+            git::Sync::UpToDate => git_prompt!(default color!(yellow)),
+            git::Sync::Behind => git_prompt!(color!(red), color!(yellow)),
+            git::Sync::Ahead => git_prompt!(color!(yellow), color!(yellow)),
+            git::Sync::Diverged => git_prompt!(color!(magenta), color!(yellow)),
+            git::Sync::Local => git_prompt!(color!(blue), color!(yellow)),
         },
-        git::Repo::Detached => {
-            div!(
-                from = color!(black),
-                by = color!(magenta),
-                to = color!(reset)
-            )
-        }
-        git::Repo::Pending => div!(from = color!(black), by = color!(cyan), to = color!(reset)),
-        git::Repo::New => div!(from = color!(black), by = color!(white), to = color!(reset)),
-        git::Repo::Error => div!(from = color!(black), by = color!(red), to = color!(reset)),
+        git::Repo::Detached => git_prompt!(color!(magenta)),
+        git::Repo::Pending => git_prompt!(color!(cyan)),
+        git::Repo::New => git_prompt!(color!(white)),
+        git::Repo::Error => git_prompt!(color!(red)),
     }
 }
 
@@ -283,7 +261,7 @@ fn help(bin: Option<String>) {
         })
         .unwrap_or_else(|| String::from(env!("CARGO_BIN_NAME")));
 
-    println!("Usage: {bin} <COMMAND> [HOST [e] [j]]",);
+    println!("Usage: {bin} <COMMAND> [HOST|-e|-j]*",);
     println!();
     println!("Commands:");
     println!("  r  Generate right side prompt");
