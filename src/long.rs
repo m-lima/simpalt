@@ -1,10 +1,40 @@
 use crate::Result;
 
-pub fn prompt(
+trait EnvFetcher {
+    fn pwd(&self) -> Option<std::path::PathBuf>;
+    fn home(&self) -> Option<String>;
+    fn venv(&self) -> Option<String>;
+}
+
+#[derive(Copy, Clone)]
+struct SysEnv;
+
+impl EnvFetcher for SysEnv {
+    fn pwd(&self) -> Option<std::path::PathBuf> {
+        std::env::current_dir()
+            .or_else(|_| std::env::var("PWD").map(std::path::PathBuf::from))
+            .ok()
+    }
+
+    fn home(&self) -> Option<String> {
+        std::env::var("HOME").ok()
+    }
+
+    fn venv(&self) -> Option<String> {
+        std::env::var("VIRTUAL_ENV").ok()
+    }
+}
+
+pub fn prompt(out: impl std::io::Write, host: Option<String>, error: bool, jobs: bool) -> Result {
+    prompt_inner(out, host, error, jobs, &SysEnv)
+}
+
+fn prompt_inner(
     mut out: impl std::io::Write,
     host: Option<String>,
     error: bool,
     jobs: bool,
+    enver: &impl EnvFetcher,
 ) -> Result {
     let mut last = None;
 
@@ -21,9 +51,11 @@ pub fn prompt(
     if let Some(host) = host {
         out.div(&mut last, color!(black), color!(reset))?;
         write!(out, "{host}")?;
+        write!(out, style!(reset))?;
+        write!(out, style!(bg = color!(black)))?;
     };
 
-    if let Ok(venv) = std::env::var("VIRTUAL_ENV") {
+    if let Some(venv) = enver.venv() {
         out.div(&mut last, color!(cyan), color!(black))?;
         if let Some(venv) = venv.rsplit(std::path::MAIN_SEPARATOR).next() {
             write!(out, "{venv}")?;
@@ -32,17 +64,12 @@ pub fn prompt(
         }
     };
 
-    let pwd = std::env::current_dir()
-        .or_else(|_| std::env::var("PWD").map(std::path::PathBuf::from))
-        .ok();
+    let pwd = enver.pwd();
 
+    out.div(&mut last, color!(blue), color!(black))?;
     if let Some(ref pwd) = pwd {
         if let Some(pwd) = pwd.to_str() {
-            out.div(&mut last, color!(blue), color!(black))?;
-            if let Some(pwd) = std::env::var("HOME")
-                .ok()
-                .and_then(|home| pwd.strip_prefix(&home))
-            {
+            if let Some(pwd) = enver.home().and_then(|home| pwd.strip_prefix(&home)) {
                 write!(out, "~{pwd}")?;
             } else {
                 write!(out, "{pwd}")?;
@@ -385,5 +412,155 @@ mod git {
         };
 
         Repo::Regular(head, sync, changes)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{prompt_inner, EnvFetcher};
+    use crate::test;
+
+    #[derive(Default)]
+    struct MockEnv {
+        pwd: Option<std::path::PathBuf>,
+        home: Option<String>,
+        venv: Option<String>,
+    }
+
+    impl EnvFetcher for MockEnv {
+        fn pwd(&self) -> Option<std::path::PathBuf> {
+            self.pwd.clone()
+        }
+
+        fn home(&self) -> Option<String> {
+            self.home.clone()
+        }
+
+        fn venv(&self) -> Option<String> {
+            self.venv.clone()
+        }
+    }
+
+    #[test]
+    fn all_empty() {
+        let result = test(|s| prompt_inner(s, None, false, false, &MockEnv::default()));
+        assert_eq!(
+            result,
+            concat!(
+                // Missing error
+                // Missing jobs
+                // Missing venv
+                // Missing HOST
+                style!(fg = color!(black), bg = color!(blue)),
+                " ",
+                // Missing PWD
+                " ",
+                style!(fg = color!(blue), bg = color!(reset), symbol!(div)),
+                style!(fg = color!(reset)),
+                " "
+            )
+        );
+    }
+
+    #[test]
+    fn just_pwd() {
+        let result = test(|s| {
+            prompt_inner(
+                s,
+                None,
+                false,
+                false,
+                &MockEnv {
+                    pwd: Some(std::path::PathBuf::from("/")),
+                    ..MockEnv::default()
+                },
+            )
+        });
+        assert_eq!(
+            result,
+            concat!(
+                // Missing error
+                // Missing jobs
+                // Missing venv
+                // Missing HOST
+                style!(fg = color!(black), bg = color!(blue)),
+                " / ",
+                style!(fg = color!(blue), bg = color!(reset), symbol!(div)),
+                style!(fg = color!(reset)),
+                " "
+            )
+        );
+    }
+
+    #[test]
+    fn home_match() {
+        let result = test(|s| {
+            prompt_inner(
+                s,
+                None,
+                false,
+                false,
+                &MockEnv {
+                    pwd: Some(std::path::PathBuf::from("/some/home/path/further/on")),
+                    home: Some(String::from("/some/home/path")),
+                    ..MockEnv::default()
+                },
+            )
+        });
+        assert_eq!(
+            result,
+            concat!(
+                // Missing error
+                // Missing jobs
+                // Missing venv
+                // Missing HOST
+                style!(fg = color!(black), bg = color!(blue)),
+                " ~/further/on ",
+                style!(fg = color!(blue), bg = color!(reset), symbol!(div)),
+                style!(fg = color!(reset)),
+                " "
+            )
+        );
+    }
+
+    #[test]
+    fn all_tags() {
+        let result = test(|s| {
+            prompt_inner(
+                s,
+                Some(String::from("[31mH")),
+                true,
+                true,
+                &MockEnv {
+                    pwd: Some(std::path::PathBuf::from("/some/home/path/further/on")),
+                    home: Some(String::from("/some/home/path")),
+                    venv: Some(String::from("py")),
+                },
+            )
+        });
+        assert_eq!(
+            result,
+            concat!(
+                style!(fg = color!(red), bg = color!(black)),
+                " ",
+                symbol!(error),
+                " ",
+                style!(fg = color!(cyan), symbol!(jobs)),
+                " ",
+                style!(fg = color!(reset), style!(fg = color!(red), "H")),
+                style!(reset),
+                style!(bg = color!(black)),
+                " ",
+                style!(fg = color!(black), bg = color!(cyan), symbol!(div)),
+                style!(fg = color!(black)),
+                " py ",
+                style!(fg = color!(cyan), bg = color!(blue), symbol!(div)),
+                style!(fg = color!(black)),
+                " ~/further/on ",
+                style!(fg = color!(blue), bg = color!(reset), symbol!(div)),
+                style!(fg = color!(reset)),
+                " "
+            )
+        );
     }
 }

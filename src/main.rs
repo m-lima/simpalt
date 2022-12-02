@@ -5,16 +5,16 @@ macro_rules! style {
         "[m"
     };
 
+    (fg = $fg: expr, bg = $bg: expr $(, $($param: expr)*)?) => {
+        concat!("[3", $fg, "m", "[4", $bg, "m" $(, $($param),*)?)
+    };
+
     (fg = $color: expr $(, $($param: expr)*)?) => {
         concat!("[3", $color, "m" $(, $($param),*)?)
     };
 
     (bg = $color: expr $(, $($param: expr)*)?) => {
         concat!("[4", $color, "m" $(, $($param),*)?)
-    };
-
-    (fg = $fg: expr, bg = $bg: expr $(, $($param: expr)*)?) => {
-        concat!("[3", $fg, "m", "[4", $bg, "m" $(, $($param),*)?)
     };
 }
 
