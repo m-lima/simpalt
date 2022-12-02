@@ -1,11 +1,41 @@
+use crate::git::short as git;
 use crate::Result;
 
-#[inline]
-pub fn prompt(
+trait EnvFetcher {
+    fn pwd(&self) -> Option<std::path::PathBuf>;
+    fn home(&self) -> Option<std::path::PathBuf>;
+    fn venv(&self) -> bool;
+}
+
+#[derive(Copy, Clone)]
+struct SysEnv;
+
+impl EnvFetcher for SysEnv {
+    fn pwd(&self) -> Option<std::path::PathBuf> {
+        std::env::current_dir()
+            .or_else(|_| std::env::var("PWD").map(std::path::PathBuf::from))
+            .ok()
+    }
+
+    fn home(&self) -> Option<std::path::PathBuf> {
+        std::env::var("HOME").map(std::path::PathBuf::from).ok()
+    }
+
+    fn venv(&self) -> bool {
+        std::env::var("VIRTUAL_ENV").is_ok()
+    }
+}
+
+pub fn prompt(out: impl std::io::Write, host: Option<String>, error: bool, jobs: bool) -> Result {
+    prompt_inner(out, host, error, jobs, &SysEnv)
+}
+
+fn prompt_inner(
     mut out: impl std::io::Write,
     host: Option<String>,
     error: bool,
     jobs: bool,
+    enver: &impl EnvFetcher,
 ) -> Result {
     let error = if error {
         style!(fg = color!(red), symbol!(error) " ")
@@ -19,7 +49,7 @@ pub fn prompt(
         ""
     };
 
-    let venv = if std::env::var("VIRTUAL_ENV").is_ok() {
+    let venv = if enver.venv() {
         style!(fg = color!(green), symbol!(python))
     } else {
         ""
@@ -27,18 +57,16 @@ pub fn prompt(
 
     let (host, host_padding) = host.map_or_else(|| (String::new(), ""), |host| (host, " "));
 
-    let pwd = std::env::current_dir()
-        .or_else(|_| std::env::var("PWD").map(std::path::PathBuf::from))
-        .ok();
+    let pwd = enver.pwd();
 
     let pwd_string = if let Some(ref pwd) = pwd {
-        pwd_string(pwd)
+        pwd_string(pwd, enver)
     } else {
         String::new()
     };
 
     let git_string = if let Some(ref pwd) = pwd {
-        git_string(pwd)
+        git_string(git::prompt(pwd))
     } else {
         style!(fg = color!(black), bg = color!(reset), symbol!(div))
     };
@@ -65,9 +93,7 @@ pub fn prompt(
     out.flush()
 }
 
-fn git_string(path: &std::path::PathBuf) -> &'static str {
-    use crate::git::short as git;
-
+fn git_string(repo: git::Repo) -> &'static str {
     macro_rules! prompt {
             (default $state: expr) => {
                 concat!(symbol!(branch), prompt!($state))
@@ -83,7 +109,7 @@ fn git_string(path: &std::path::PathBuf) -> &'static str {
             };
         }
 
-    match git::prompt(path) {
+    match repo {
         git::Repo::None => prompt!(color!(blue)),
         git::Repo::Clean(sync) => match sync {
             git::Sync::UpToDate => prompt!(default color!(green)),
@@ -106,8 +132,8 @@ fn git_string(path: &std::path::PathBuf) -> &'static str {
     }
 }
 
-fn pwd_string(path: &std::path::PathBuf) -> String {
-    if let Ok(home) = std::env::var("HOME").map(std::path::PathBuf::from) {
+fn pwd_string(path: &std::path::PathBuf, enver: &impl EnvFetcher) -> String {
+    if let Some(home) = enver.home() {
         if home.eq(path) {
             return String::from("~");
         }
@@ -134,5 +160,265 @@ fn pwd_string(path: &std::path::PathBuf) -> String {
         String::from(prefix.as_os_str().to_string_lossy())
     } else {
         String::from(std::path::MAIN_SEPARATOR)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{git, git_string, prompt_inner, EnvFetcher};
+    use crate::test;
+
+    #[derive(Default)]
+    struct MockEnv {
+        pwd: Option<std::path::PathBuf>,
+        home: Option<std::path::PathBuf>,
+        venv: bool,
+    }
+
+    impl EnvFetcher for MockEnv {
+        fn pwd(&self) -> Option<std::path::PathBuf> {
+            self.pwd.clone()
+        }
+
+        fn home(&self) -> Option<std::path::PathBuf> {
+            self.home.clone()
+        }
+
+        fn venv(&self) -> bool {
+            self.venv
+        }
+    }
+
+    #[test]
+    fn all_empty() {
+        let result = test(|s| prompt_inner(s, None, false, false, &MockEnv::default()));
+        assert_eq!(
+            result,
+            concat!(
+                style!(bg = color!(black)),
+                " ",
+                // Missing statuses
+                style!(fg = color!(reset)),
+                // Missing HOST
+                style!(reset),
+                style!(bg = color!(black)),
+                // Missing PWD
+                " ",
+                // Missing GIT chevron
+                style!(fg = color!(black), bg = color!(reset), symbol!(div)),
+                style!(reset),
+                " "
+            )
+        );
+    }
+
+    #[test]
+    fn just_pwd() {
+        let result = test(|s| {
+            prompt_inner(
+                s,
+                None,
+                false,
+                false,
+                &MockEnv {
+                    pwd: Some(std::path::PathBuf::from("/")),
+                    ..MockEnv::default()
+                },
+            )
+        });
+        assert_eq!(
+            result,
+            concat!(
+                style!(bg = color!(black)),
+                " ",
+                // Missing statuses
+                style!(fg = color!(reset)),
+                // Missing HOST
+                style!(reset),
+                style!(bg = color!(black)),
+                "/",
+                " ",
+                style!(fg = color!(black), bg = color!(blue), symbol!(div)),
+                style!(fg = color!(blue), bg = color!(reset), symbol!(div)),
+                style!(reset),
+                " "
+            )
+        );
+    }
+
+    #[test]
+    fn home_match() {
+        let result = test(|s| {
+            prompt_inner(
+                s,
+                None,
+                false,
+                false,
+                &MockEnv {
+                    pwd: Some(std::path::PathBuf::from("/some/home/path/")),
+                    home: Some(std::path::PathBuf::from("/some/home/path")),
+                    ..MockEnv::default()
+                },
+            )
+        });
+        assert_eq!(
+            result,
+            concat!(
+                style!(bg = color!(black)),
+                " ",
+                // Missing statuses
+                style!(fg = color!(reset)),
+                // Missing HOST
+                style!(reset),
+                style!(bg = color!(black)),
+                "~",
+                " ",
+                style!(fg = color!(black), bg = color!(blue), symbol!(div)),
+                style!(fg = color!(blue), bg = color!(reset), symbol!(div)),
+                style!(reset),
+                " "
+            )
+        );
+    }
+
+    #[test]
+    fn all_tags() {
+        let result = test(|s| {
+            prompt_inner(
+                s,
+                Some(String::from("[31mH")),
+                true,
+                true,
+                &MockEnv {
+                    pwd: Some(std::path::PathBuf::from("/some/home/path/")),
+                    home: Some(std::path::PathBuf::from("/some/home/path")),
+                    ..MockEnv::default()
+                },
+            )
+        });
+        assert_eq!(
+            result,
+            concat!(
+                style!(bg = color!(black)),
+                " ",
+                style!(fg = color!(red), symbol!(error)),
+                " ",
+                style!(fg = color!(cyan), symbol!(jobs)),
+                " ",
+                style!(fg = color!(reset)),
+                style!(fg = color!(red), "H"),
+                style!(reset),
+                style!(bg = color!(black)),
+                " ",
+                "~",
+                " ",
+                style!(fg = color!(black), bg = color!(blue), symbol!(div)),
+                style!(fg = color!(blue), bg = color!(reset), symbol!(div)),
+                style!(reset),
+                " "
+            )
+        );
+    }
+
+    #[test]
+    fn git_sync() {
+        assert_eq!(
+            git_string(git::Repo::Clean(git::Sync::Behind)),
+            concat!(
+                style!(fg = color!(red), symbol!(branch)),
+                style!(fg = color!(black), bg = color!(green), symbol!(div)),
+                style!(fg = color!(green), bg = color!(reset), symbol!(div)),
+            )
+        );
+        assert_eq!(
+            git_string(git::Repo::Clean(git::Sync::Ahead)),
+            concat!(
+                style!(fg = color!(yellow), symbol!(branch)),
+                style!(fg = color!(black), bg = color!(green), symbol!(div)),
+                style!(fg = color!(green), bg = color!(reset), symbol!(div)),
+            )
+        );
+        assert_eq!(
+            git_string(git::Repo::Clean(git::Sync::Diverged)),
+            concat!(
+                style!(fg = color!(magenta), symbol!(branch)),
+                style!(fg = color!(black), bg = color!(green), symbol!(div)),
+                style!(fg = color!(green), bg = color!(reset), symbol!(div)),
+            )
+        );
+        assert_eq!(
+            git_string(git::Repo::Clean(git::Sync::UpToDate)),
+            concat!(
+                symbol!(branch),
+                style!(fg = color!(black), bg = color!(green), symbol!(div)),
+                style!(fg = color!(green), bg = color!(reset), symbol!(div)),
+            )
+        );
+        assert_eq!(
+            git_string(git::Repo::Clean(git::Sync::Local)),
+            concat!(
+                style!(fg = color!(blue), symbol!(branch)),
+                style!(fg = color!(black), bg = color!(green), symbol!(div)),
+                style!(fg = color!(green), bg = color!(reset), symbol!(div)),
+            )
+        );
+    }
+
+    #[test]
+    fn git_status() {
+        assert_eq!(
+            git_string(git::Repo::None),
+            concat!(
+                style!(fg = color!(black), bg = color!(blue), symbol!(div)),
+                style!(fg = color!(blue), bg = color!(reset), symbol!(div)),
+            )
+        );
+        assert_eq!(
+            git_string(git::Repo::Clean(git::Sync::UpToDate)),
+            concat!(
+                symbol!(branch),
+                style!(fg = color!(black), bg = color!(green), symbol!(div)),
+                style!(fg = color!(green), bg = color!(reset), symbol!(div)),
+            )
+        );
+        assert_eq!(
+            git_string(git::Repo::Dirty(git::Sync::UpToDate)),
+            concat!(
+                symbol!(branch),
+                style!(fg = color!(black), bg = color!(yellow), symbol!(div)),
+                style!(fg = color!(yellow), bg = color!(reset), symbol!(div)),
+            )
+        );
+        assert_eq!(
+            git_string(git::Repo::Detached),
+            concat!(
+                symbol!(branch),
+                style!(fg = color!(black), bg = color!(magenta), symbol!(div)),
+                style!(fg = color!(magenta), bg = color!(reset), symbol!(div)),
+            )
+        );
+        assert_eq!(
+            git_string(git::Repo::Pending),
+            concat!(
+                symbol!(warn),
+                style!(fg = color!(black), bg = color!(cyan), symbol!(div)),
+                style!(fg = color!(cyan), bg = color!(reset), symbol!(div)),
+            )
+        );
+        assert_eq!(
+            git_string(git::Repo::Untracked),
+            concat!(
+                symbol!(branch),
+                style!(fg = color!(black), bg = color!(cyan), symbol!(div)),
+                style!(fg = color!(cyan), bg = color!(reset), symbol!(div)),
+            )
+        );
+        assert_eq!(
+            git_string(git::Repo::Error),
+            concat!(
+                style!(fg = color!(black), bg = color!(red), symbol!(div)),
+                style!(fg = color!(red), bg = color!(reset), symbol!(div)),
+            )
+        );
     }
 }
