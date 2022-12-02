@@ -9,9 +9,11 @@ jobs:
   release:
     name: Release
     runs-on: ubuntu-latest
+    outputs:
+      upload_url: ${{ steps.create_release.outputs.upload_url }}
     steps:
     - name: Checkout
-      uses: actions/checkout@v1
+      uses: actions/checkout@v3
     - name: Release body
       id: release_body
       run: |
@@ -22,22 +24,13 @@ jobs:
         echo "release_body=$body" >> $GITHUB_OUTPUT
     - name: Create
       id: create_release
-      uses: actions/create-release@v1.0.0
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      uses: softprops/action-gh-release@v1
       with:
+        name: ${{ github.ref }}
         tag_name: ${{ github.ref }}
-        release_name: Release ${{ github.ref }}
         draft: false
         prerelease: false
         body: '**Changes since last release**\n${{ steps.release_body.outputs.release_body }}'
-    - name: Capture URL
-      run: echo "${{ steps.create_release.outputs.upload_url }}" > release_url.txt
-    - name: Save URL
-      uses: actions/upload-artifact@v1
-      with:
-        name: release_url
-        path: release_url.txt
 
   build:
     needs: [release]
@@ -51,7 +44,7 @@ jobs:
           - windows-latest
     steps:
     - name: Checkout
-      uses: actions/checkout@v1
+      uses: actions/checkout@v3
     - name: Prepare
       uses: actions-rs/toolchain@v1
       with:
@@ -61,22 +54,13 @@ jobs:
       with:
         command: build
         args: --verbose --release
-    - name: Recover release URL
-      uses: actions/download-artifact@v1
-      with:
-        name: release_url
-    - name: Load release
-      id: load_release
-      run: |
-        echo "upload_url=$(cat release_url/release_url.txt)" >> $GITHUB_OUTPUT
-        echo "os_name=$(echo ${{ matrix.os }} | cut -d'-' -f1)" >> $GITHUB_OUTPUT
     - name: Upload asset (UNIX)
       if: matrix.os != 'windows-latest'
       uses: actions/upload-release-asset@v1.0.1
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
-        upload_url: ${{ steps.load_release.outputs.upload_url }}
+        upload_url: ${{ needs.release.outputs.upload_url }}
         asset_path: ./target/release/simpalt
         asset_name: simpalt-${{ steps.load_release.outputs.os_name }}
         asset_content_type: application/octet-stream
@@ -86,7 +70,7 @@ jobs:
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
-        upload_url: ${{ steps.load_release.outputs.upload_url }}
+        upload_url: ${{ needs.release.outputs.upload_url }}
         asset_path: ./target/release/simpalt.exe
         asset_name: simpalt-${{ steps.load_release.outputs.os_name }}.exe
         asset_content_type: application/octet-stream
