@@ -345,7 +345,7 @@ mod long {
 
             if let Some(ref pwd) = pwd {
                 match git::prompt(pwd) {
-                    git::Repo::None => self.div(&mut last, color!(reset), color!(reset)),
+                    git::Repo::None => {}
                     git::Repo::Error => {
                         self.div(&mut last, color!(red), color!(black));
                         print!("!");
