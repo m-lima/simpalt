@@ -493,16 +493,18 @@ fn right() {
     );
 }
 
-fn escape(mut args: impl Iterator<Item = String>) {
-    if let Some(arg) = args.next() {
-        let regex = regex::Regex::new(r#"(\[[0-9;]*m)"#).unwrap();
+fn escape(input: &str) -> std::borrow::Cow<'_, str> {
+    let regex = regex::Regex::new(r#"(\[(m\[|[0-9;])*m)"#).unwrap();
+    regex.replace_all(input, |cap: &regex::Captures<'_>| {
+        format!("%{{{escape}%}}", escape = &cap[1])
+    })
+}
 
-        print!(
-            "{}",
-            regex.replace_all(arg.as_str(), |cap: &regex::Captures<'_>| {
-                format!("%{{{escape}%}}", escape = &cap[1])
-            })
-        );
+fn print_escaped(mut args: impl Iterator<Item = String>) {
+    use std::io::Write;
+    if let Some(ref input) = args.next() {
+        let mut stdout = std::io::stdout().lock();
+        drop(write!(stdout, "{escaped}", escaped = escape(input)).and_then(|_| stdout.flush()));
     }
 }
 
@@ -539,7 +541,27 @@ fn main() {
     match command.as_deref() {
         Some("r") => right(),
         Some("l") => left(args),
-        Some("e") => escape(args),
+        Some("e") => print_escaped(args),
         _ => help(bin),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn zsh_escape_regex() {
+        let input = String::from("abc[31mdef");
+        let output = String::from("abc%{[31m%}def");
+        assert_eq!(escape(&input), output);
+
+        let input = String::from("[38;5;2mabc[mdef");
+        let output = String::from("%{[38;5;2m%}abc%{[m%}def");
+        assert_eq!(escape(&input), output);
+
+        let input = String::from("[38;5;2m[41mabc[49mdef");
+        let output = String::from("%{[38;5;2m[41m%}abc%{[49m%}def");
+        assert_eq!(escape(&input), output);
     }
 }
