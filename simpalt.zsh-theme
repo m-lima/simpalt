@@ -17,12 +17,15 @@ if `command -v simpalt &> /dev/null`; then
   }
 
   # Allow toggling
-  zle -N simpalt_toggle_mode simpalt_toggle_mode
+  zle -N simpalt_toggle_mode
 
   # Allow `eval` for the prompt
   setopt promptsubst
   PROMPT='$(__simpalt_build_prompt)'
   RPROMPT='$(__simpalt_build_r_prompt)'
+
+  # Avoid penv from setting the PROMPT
+  VIRTUAL_ENV_DISABLE_PROMPT=1
 else
   echo '[31mPrompt error:[m `simpalt` not found. Make sure that it is in your [33m$PATH[m. Reverting to default prompt'
 fi
