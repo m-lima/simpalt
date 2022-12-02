@@ -114,7 +114,6 @@ macro_rules! symbol {
     };
 }
 
-mod git;
 mod long;
 mod short;
 
