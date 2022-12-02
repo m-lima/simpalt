@@ -1,7 +1,5 @@
 #![deny(warnings, rust_2018_idioms, clippy::pedantic)]
 
-mod git;
-
 macro_rules! style {
     (reset) => {
         "[m"
@@ -116,399 +114,82 @@ macro_rules! symbol {
     };
 }
 
-fn left(args: impl Iterator<Item = String>) {
-    let (host, error, jobs, long) = args.fold((None, false, false, false), |acc, curr| {
-        if curr.is_empty() {
-            acc
-        } else if curr == "-e" {
-            (acc.0, true, acc.2, acc.3)
-        } else if curr == "-j" {
-            (acc.0, acc.1, true, acc.3)
-        } else if curr == "-l" {
-            (acc.0, acc.1, acc.2, true)
-        } else {
-            (Some(curr), acc.1, acc.2, acc.3)
-        }
+mod git;
+mod long;
+mod short;
+
+type Result = std::io::Result<()>;
+
+fn main() {
+    let mut args = std::env::args();
+    let bin = args.next();
+    let command = args.next();
+
+    let out = std::io::stdout().lock();
+    drop(match command.as_deref() {
+        Some("l") => left(out, args),
+        Some("r") => right(out),
+        Some("e") => escape(out, args),
+        _ => help(out, bin),
     });
+}
+
+fn left(out: impl std::io::Write, args: impl Iterator<Item = String>) -> Result {
+    let (host, error, jobs, long) = parse_params(args);
 
     if long {
-        long::prompt(host, error, jobs);
+        long::prompt(out, host, error, jobs)
     } else {
-        short::prompt(host, error, jobs);
+        short::prompt(out, host, error, jobs)
     }
 }
 
-mod short {
-    pub fn prompt(host: Option<String>, error: bool, jobs: bool) {
-        use std::io::Write;
-
-        let error = if error {
-            style!(fg = color!(red), symbol!(error) " ")
-        } else {
-            ""
-        };
-
-        let jobs = if jobs {
-            style!(fg = color!(cyan), symbol!(jobs) " ")
-        } else {
-            ""
-        };
-
-        let venv = if std::env::var("VIRTUAL_ENV").is_ok() {
-            style!(fg = color!(green), symbol!(python))
-        } else {
-            ""
-        };
-
-        let (host, host_padding) = host.map_or_else(|| (String::new(), ""), |host| (host, " "));
-
-        let pwd = std::env::current_dir()
-            .or_else(|_| std::env::var("PWD").map(std::path::PathBuf::from))
-            .ok();
-
-        let pwd_string = if let Some(ref pwd) = pwd {
-            pwd_string(pwd)
-        } else {
-            String::new()
-        };
-
-        let git_string = if let Some(ref pwd) = pwd {
-            git_string(pwd)
-        } else {
-            style!(fg = color!(black), bg = color!(reset), symbol!(div))
-        };
-
-        let mut stdout = std::io::stdout().lock();
-        drop(
-            write!(
-                stdout,
-                concat!(
-                    style!(bg = color!(black), " {error}{jobs}{venv}"),
-                    style!(fg = color!(reset), "{host}"),
-                    style!(reset),
-                    style!(bg = color!(black), "{host_padding}{pwd_string} "),
-                    "{git_string}",
-                    style!(reset),
-                    " "
-                ),
-                error = error,
-                jobs = jobs,
-                venv = venv,
-                host_padding = host_padding,
-                host = host,
-                pwd_string = pwd_string,
-                git_string = git_string,
-            )
-            .and_then(|_| stdout.flush()),
-        );
-    }
-
-    fn git_string(path: &std::path::PathBuf) -> &'static str {
-        use crate::git::short as git;
-
-        macro_rules! prompt {
-            (default $state: expr) => {
-                concat!(symbol!(branch), prompt!($state))
-            };
-            (warn $state: expr) => {
-                concat!(symbol!(warn), prompt!($state))
-            };
-            ($sync: expr, $state: expr) => {
-                style!(fg = $sync, symbol!(branch) prompt!($state))
-            };
-            ($state: expr) => {
-                style!(fg = color!(black), bg = $state, symbol!(div) style!(fg = $state, bg = color!(reset), symbol!(div)))
-            };
-        }
-
-        match git::prompt(path) {
-            git::Repo::None => prompt!(color!(blue)),
-            git::Repo::Clean(sync) => match sync {
-                git::Sync::UpToDate => prompt!(default color!(green)),
-                git::Sync::Behind => prompt!(color!(red), color!(green)),
-                git::Sync::Ahead => prompt!(color!(yellow), color!(green)),
-                git::Sync::Diverged => prompt!(color!(magenta), color!(green)),
-                git::Sync::Local => prompt!(color!(blue), color!(green)),
-            },
-            git::Repo::Dirty(sync) => match sync {
-                git::Sync::UpToDate => prompt!(default color!(yellow)),
-                git::Sync::Behind => prompt!(color!(red), color!(yellow)),
-                git::Sync::Ahead => prompt!(color!(yellow), color!(yellow)),
-                git::Sync::Diverged => prompt!(color!(magenta), color!(yellow)),
-                git::Sync::Local => prompt!(color!(blue), color!(yellow)),
-            },
-            git::Repo::Pending => prompt!(warn color!(cyan)),
-            git::Repo::Untracked => prompt!(default color!(cyan)),
-            git::Repo::Detached => prompt!(default color!(magenta)),
-            git::Repo::Error => prompt!(color!(red)),
-        }
-    }
-
-    fn pwd_string(path: &std::path::PathBuf) -> String {
-        if let Ok(home) = std::env::var("HOME").map(std::path::PathBuf::from) {
-            if home.eq(path) {
-                return String::from("~");
-            }
-        }
-
-        let (prefix, components) =
-            path.components()
-                .fold((None, vec![]), |(prefix, mut list), curr| match curr {
-                    std::path::Component::Prefix(prefix) => (Some(prefix), list),
-                    std::path::Component::RootDir | std::path::Component::Normal(_) => {
-                        list.push(curr);
-                        (prefix, list)
-                    }
-                    std::path::Component::ParentDir => {
-                        list.pop();
-                        (prefix, list)
-                    }
-                    std::path::Component::CurDir => (prefix, list),
-                });
-
-        if let Some(std::path::Component::Normal(path)) = components.last() {
-            String::from(path.to_string_lossy())
-        } else if let Some(prefix) = prefix {
-            String::from(prefix.as_os_str().to_string_lossy())
-        } else {
-            String::from(std::path::MAIN_SEPARATOR)
-        }
-    }
-}
-
-mod long {
-    use crate::git::long as git;
-
-    macro_rules! dwrite {
-        ($out: ident, $($arg:tt)*) => {
-            drop(write!($out.0, $($arg)*))
-        }
-    }
-
-    pub fn prompt(host: Option<String>, error: bool, jobs: bool) {
-        Prompt(std::io::stdout().lock()).print(host, error, jobs);
-    }
-
-    struct Prompt<W>(W);
-
-    impl<W: std::io::Write> Prompt<W> {
-        fn print(&mut self, host: Option<String>, error: bool, jobs: bool) {
-            macro_rules! print {
-                ($($arg:tt)*) => {
-                    dwrite!(self, $($arg)*)
-                }
-            }
-
-            let mut last = None;
-
-            if error {
-                self.div(&mut last, color!(black), color!(red));
-                print!(symbol!(error));
-            };
-
-            if jobs {
-                self.div(&mut last, color!(black), color!(cyan));
-                print!(symbol!(jobs));
-            }
-
-            if let Some(host) = host {
-                self.div(&mut last, color!(black), color!(reset));
-                print!("{host}");
-            };
-
-            if let Ok(venv) = std::env::var("VIRTUAL_ENV") {
-                self.div(&mut last, color!(cyan), color!(black));
-                if let Some(venv) = venv.rsplit(std::path::MAIN_SEPARATOR).next() {
-                    print!("{venv}");
-                } else {
-                    print!("{venv}");
-                }
-            };
-
-            let pwd = std::env::current_dir()
-                .or_else(|_| std::env::var("PWD").map(std::path::PathBuf::from))
-                .ok();
-
-            if let Some(ref pwd) = pwd {
-                if let Some(pwd) = pwd.to_str() {
-                    self.div(&mut last, color!(blue), color!(black));
-                    if let Some(pwd) = std::env::var("HOME")
-                        .ok()
-                        .and_then(|home| pwd.strip_prefix(&home))
-                    {
-                        print!("~{pwd}");
-                    } else {
-                        print!("{pwd}");
-                    }
-                }
-            }
-
-            if let Some(ref pwd) = pwd {
-                match git::prompt(pwd) {
-                    git::Repo::None => {}
-                    git::Repo::Error => {
-                        self.div(&mut last, color!(red), color!(black));
-                        print!("!");
-                    }
-                    git::Repo::Regular(head, sync, changes) => {
-                        if changes.clean() {
-                            self.render_sync(&mut last, sync);
-                            self.div(&mut last, color!(green), color!(black));
-                            print!(concat!(symbol!(branch), "{head}"), head = head);
-                        } else {
-                            self.render_changes(&mut last, changes);
-                            if !matches!(
-                                sync,
-                                git::Sync::Tracked {
-                                    ahead: 0,
-                                    behind: 0
-                                }
-                            ) {
-                                self.div(&mut last, color!(black), color!(reset));
-                                print!(symbol!(div thin));
-                                self.render_sync(&mut last, sync);
-                            }
-                            self.div(&mut last, color!(yellow), color!(black));
-                            print!(concat!(symbol!(branch), "{head}"), head = head);
-                        }
-                    }
-                    git::Repo::Detached(head, changes) => {
-                        self.render_changes(&mut last, changes);
-                        self.div(&mut last, color!(magenta), color!(black));
-                        print!(concat!(symbol!(ref), "{head}"), head = head);
-                    }
-                    git::Repo::Pending(head, pending, changes) => {
-                        self.render_changes(&mut last, changes);
-                        self.div(&mut last, color!(cyan), color!(black));
-                        print!(
-                            concat!(symbol!(branch), "{head} {pending}"),
-                            head = head,
-                            pending = pending_symbol(pending),
-                        );
-                    }
-                    git::Repo::New(changes) => {
-                        self.render_changes(&mut last, changes);
-                        self.div(&mut last, color!(cyan), color!(black));
-                        print!(symbol!(new));
-                    }
-                }
-            };
-            self.div(&mut last, color!(reset), color!(reset));
-            drop(self.0.flush());
-        }
-
-        fn div(&mut self, last: &mut Option<&'static str>, to: &'static str, fg: &'static str) {
-            if let Some(last) = last {
-                if &to == last {
-                    dwrite!(self, " [3{fg}m");
-                } else {
-                    dwrite!(
-                        self,
-                        concat!(" [3{last}m[4{to}m", symbol!(div), "[3{fg}m "),
-                        last = last,
-                        to = to,
-                        fg = fg,
-                    );
-                }
+fn parse_params(args: impl Iterator<Item = String>) -> (Option<String>, bool, bool, bool) {
+    args.filter(|s| !s.is_empty())
+        .fold((None, false, false, false), |acc, curr| {
+            if curr == "-e" {
+                (acc.0, true, acc.2, acc.3)
+            } else if curr == "-j" {
+                (acc.0, acc.1, true, acc.3)
+            } else if curr == "-l" {
+                (acc.0, acc.1, acc.2, true)
             } else {
-                dwrite!(self, "[3{fg}m[4{to}m ");
+                (Some(curr), acc.1, acc.2, acc.3)
             }
-            *last = Some(to);
-        }
-
-        fn render_changes(&mut self, last: &mut Option<&'static str>, changes: git::Changes) {
-            if changes.added > 0 {
-                self.div(last, color!(black), color!(green));
-                dwrite!(self, "+{added}", added = changes.added);
-            }
-
-            if changes.removed > 0 {
-                self.div(last, color!(black), color!(red));
-                dwrite!(self, "-{removed}", removed = changes.removed);
-            }
-
-            if changes.modified > 0 {
-                self.div(last, color!(black), color!(blue));
-                dwrite!(self, "~{modified}", modified = changes.modified);
-            }
-
-            if changes.conflicted > 0 {
-                self.div(last, color!(black), color!(magenta));
-                dwrite!(self, "!{conflicted}", conflicted = changes.conflicted);
-            }
-        }
-
-        fn render_sync(&mut self, last: &mut Option<&'static str>, sync: git::Sync) {
-            match sync {
-                git::Sync::Local => {
-                    self.div(last, color!(black), color!(cyan));
-                    dwrite!(self, concat!(symbol!(local), " local"));
-                }
-                git::Sync::Gone => {
-                    self.div(last, color!(black), color!(magenta));
-                    dwrite!(self, concat!(symbol!(gone), " gone"));
-                }
-                git::Sync::Tracked { ahead, behind } => {
-                    if ahead > 0 {
-                        self.div(last, color!(black), color!(yellow));
-                        dwrite!(self, concat!(symbol!(ahead), "{ahead}"), ahead = ahead);
-                    }
-                    if behind > 0 {
-                        self.div(last, color!(black), color!(red));
-                        dwrite!(self, concat!(symbol!(behind), "{behind}"), behind = behind);
-                    }
-                }
-            }
-        }
-    }
-
-    const fn pending_symbol(pending: git::Pending) -> &'static str {
-        match pending {
-            git::Pending::Merge => symbol!(merge),
-            git::Pending::Revert => symbol!(revert),
-            git::Pending::Cherry => symbol!(cherry),
-            git::Pending::Bisect => symbol!(bisect),
-            git::Pending::Rebase => symbol!(rebase),
-            git::Pending::Mailbox => symbol!(mailbox),
-        }
-    }
+        })
 }
 
-fn right() {
+fn right(mut out: impl std::io::Write) -> Result {
     use chrono::Timelike;
-    use std::io::Write;
-
     let time = chrono::DateTime::<chrono::Local>::from(std::time::SystemTime::now());
 
-    let mut stdout = std::io::stdout().lock();
-    drop(
+    write!(
+        out,
+        style!(fg = color!([23]), "{h:02}:{m:02}:{s:02}" style!(reset)),
+        h = time.hour(),
+        m = time.minute(),
+        s = time.second(),
+    )?;
+    out.flush()
+}
+
+fn escape(mut out: impl std::io::Write, mut args: impl Iterator<Item = String>) -> Result {
+    if let Some(ref arg) = args.next() {
+        let regex = regex::Regex::new(r#"(\[(m\[|[0-9;])*m)"#).unwrap();
+
         write!(
-            stdout,
-            style!(fg = color!([23]), "{h:02}:{m:02}:{s:02}" style!(reset)),
-            h = time.hour(),
-            m = time.minute(),
-            s = time.second(),
+            out,
+            "{}",
+            regex.replace_all(arg, |cap: &regex::Captures<'_>| {
+                format!("%{{{escape}%}}", escape = &cap[1])
+            })
         )
-        .and_then(|_| stdout.flush()),
-    );
-}
-
-fn escape(input: &str) -> std::borrow::Cow<'_, str> {
-    let regex = regex::Regex::new(r#"(\[(m\[|[0-9;])*m)"#).unwrap();
-    regex.replace_all(input, |cap: &regex::Captures<'_>| {
-        format!("%{{{escape}%}}", escape = &cap[1])
-    })
-}
-
-fn print_escaped(mut args: impl Iterator<Item = String>) {
-    use std::io::Write;
-    if let Some(ref input) = args.next() {
-        let mut stdout = std::io::stdout().lock();
-        drop(write!(stdout, "{escaped}", escaped = escape(input)).and_then(|_| stdout.flush()));
+    } else {
+        Ok(())
     }
 }
 
-fn help(bin: Option<String>) {
+fn help(mut out: impl std::io::Write, bin: Option<String>) -> Result {
     let bin = bin
         .map(std::path::PathBuf::from)
         .and_then(|p| {
@@ -518,50 +199,104 @@ fn help(bin: Option<String>) {
         })
         .unwrap_or_else(|| String::from(env!("CARGO_BIN_NAME")));
 
-    println!("Usage: {bin} <COMMAND> [HOST|-e|-j|-l]*",);
-    println!();
-    println!("Commands:");
-    println!("  e  Escape string for ZSH");
-    println!("  r  Generate right side prompt");
-    println!("  l  Generate left side prompt");
-    println!("  h  Show this help message");
-    println!();
-    println!("Arguments (only for left side prompt):");
-    println!("  HOST  Symbol to be used as host (can contain ansi escape codes)");
-    println!("  -e    Last command was an error");
-    println!("  -j    There are background processes running");
-    println!("  -l    Use the long format");
+    writeln!(out, "Usage: {bin} <COMMAND> [HOST|-e|-j|-l]*",)?;
+    writeln!(out)?;
+    writeln!(out, "Commands:")?;
+    writeln!(out, "  e  Escape string for ZSH")?;
+    writeln!(out, "  r  Generate right side prompt")?;
+    writeln!(out, "  l  Generate left side prompt")?;
+    writeln!(out, "  h  Show this help message")?;
+    writeln!(out)?;
+    writeln!(out, "Arguments (only for left side prompt):")?;
+    writeln!(
+        out,
+        "  HOST  Symbol to be used as host (can contain ansi escape codes)"
+    )?;
+    writeln!(out, "  -e    Last command was an error")?;
+    writeln!(out, "  -j    There are background processes running")?;
+    writeln!(out, "  -l    Use the long format")?;
+    out.flush()
 }
 
-fn main() {
-    let mut args = std::env::args();
-    let bin = args.next();
-    let command = args.next();
-
-    match command.as_deref() {
-        Some("r") => right(),
-        Some("l") => left(args),
-        Some("e") => print_escaped(args),
-        _ => help(bin),
-    }
+#[cfg(test)]
+fn test<F>(testing: F) -> String
+where
+    F: FnOnce(&mut Vec<u8>) -> Result,
+{
+    let mut buffer = String::new();
+    unsafe { testing(buffer.as_mut_vec()).unwrap() };
+    buffer
 }
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use super::test;
 
     #[test]
     fn zsh_escape_regex() {
-        let input = String::from("abc[31mdef");
+        use super::escape;
+        use std::iter::once;
+
+        let input = once(String::from("abc[31mdef"));
         let output = String::from("abc%{[31m%}def");
-        assert_eq!(escape(&input), output);
+        assert_eq!(test(|s| escape(s, input)), output);
 
-        let input = String::from("[38;5;2mabc[mdef");
+        let input = once(String::from("[38;5;2mabc[mdef"));
         let output = String::from("%{[38;5;2m%}abc%{[m%}def");
-        assert_eq!(escape(&input), output);
+        assert_eq!(test(|s| escape(s, input)), output);
 
-        let input = String::from("[38;5;2m[41mabc[49mdef");
+        let input = once(String::from("[38;5;2m[41mabc[49mdef"));
         let output = String::from("%{[38;5;2m[41m%}abc%{[49m%}def");
-        assert_eq!(escape(&input), output);
+        assert_eq!(test(|s| escape(s, input)), output);
+    }
+
+    #[test]
+    fn right() {
+        use super::right;
+        let result = test(|s| right(s));
+
+        let regex = regex::Regex::new("^\\[38;5;23m[0-2][0-9]:[0-5][0-9]:[0-5][0-9]\\[m$").unwrap();
+        assert!(regex.is_match(&result));
+    }
+
+    #[test]
+    fn parse_params() {
+        use super::parse_params;
+        assert_eq!(
+            (None, false, false, false),
+            parse_params(std::iter::empty())
+        );
+
+        assert_eq!(
+            (Some(String::from("last")), false, false, false),
+            parse_params(
+                vec![
+                    String::from("first"),
+                    String::from("second"),
+                    String::from("last")
+                ]
+                .into_iter()
+            )
+        );
+
+        assert_eq!(
+            (Some(String::from("last")), true, true, true),
+            parse_params(
+                vec![
+                    String::from("first"),
+                    String::new(),
+                    String::from("-3"),
+                    String::from("-e"),
+                    String::from("second"),
+                    String::from("-j"),
+                    String::from("last"),
+                    String::from("-l"),
+                    String::from("-e"),
+                    String::from("-j"),
+                    String::new(),
+                ]
+                .into_iter()
+            )
+        );
     }
 }
