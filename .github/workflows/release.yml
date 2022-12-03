@@ -76,8 +76,6 @@ jobs:
         [ "${last_tag}" ] && last_tag="${last_tag}.." || true
         echo '**Changes since the last release**' > RELEASE_CHANGES
         git log --format='- %h %s' "${last_tag}${{ github.ref }}" >> RELEASE_CHANGES
-        cat RELEASE_CHANGES
-        ls -la simpalt-ubuntu-latest/
         mv ubuntu-latest/simpalt simpalt-ubuntu
         mv macOS-latest/simpalt simpalt-macOS
         mv windows-latest/simpalt.exe simpalt-windows.exe
