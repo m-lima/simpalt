@@ -1,19 +1,19 @@
 #![deny(warnings, rust_2018_idioms, clippy::pedantic)]
 
 macro_rules! style {
-    (reset) => {
-        "[m"
+    (reset $(, $($param: expr),*)?) => {
+        concat!("[m" $(, $($param),*)?)
     };
 
-    (fg = $fg: expr, bg = $bg: expr $(, $($param: expr)*)?) => {
+    (fg = $fg: expr, bg = $bg: expr $(, $($param: expr),*)?) => {
         concat!("[3", $fg, "m", "[4", $bg, "m" $(, $($param),*)?)
     };
 
-    (fg = $color: expr $(, $($param: expr)*)?) => {
+    (fg = $color: expr $(, $($param: expr),*)?) => {
         concat!("[3", $color, "m" $(, $($param),*)?)
     };
 
-    (bg = $color: expr $(, $($param: expr)*)?) => {
+    (bg = $color: expr $(, $($param: expr),*)?) => {
         concat!("[4", $color, "m" $(, $($param),*)?)
     };
 }
@@ -62,7 +62,7 @@ macro_rules! symbol {
         ""
     };
     (python) => {
-        " " // " "
+        "" // " "
     };
     (new) => {
         ""
@@ -164,7 +164,7 @@ fn right(mut out: impl std::io::Write) -> Result {
 
     write!(
         out,
-        style!(fg = color!([23]), "{h:02}:{m:02}:{s:02}" style!(reset)),
+        style!(fg = color!([23]), "{h:02}:{m:02}:{s:02}", style!(reset)),
         h = time.hour(),
         m = time.minute(),
         s = time.second(),

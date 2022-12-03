@@ -1,30 +1,5 @@
 use crate::Result;
 
-trait EnvFetcher {
-    fn pwd(&self) -> Option<std::path::PathBuf>;
-    fn home(&self) -> Option<String>;
-    fn venv(&self) -> Option<String>;
-}
-
-#[derive(Copy, Clone)]
-struct SysEnv;
-
-impl EnvFetcher for SysEnv {
-    fn pwd(&self) -> Option<std::path::PathBuf> {
-        std::env::current_dir()
-            .or_else(|_| std::env::var("PWD").map(std::path::PathBuf::from))
-            .ok()
-    }
-
-    fn home(&self) -> Option<String> {
-        std::env::var("HOME").ok()
-    }
-
-    fn venv(&self) -> Option<String> {
-        std::env::var("VIRTUAL_ENV").ok()
-    }
-}
-
 pub fn prompt(out: impl std::io::Write, host: Option<String>, error: bool, jobs: bool) -> Result {
     prompt_inner(out, host, error, jobs, &SysEnv)
 }
@@ -227,6 +202,31 @@ const fn pending_symbol(pending: git::Pending) -> &'static str {
         git::Pending::Bisect => symbol!(bisect),
         git::Pending::Rebase => symbol!(rebase),
         git::Pending::Mailbox => symbol!(mailbox),
+    }
+}
+
+trait EnvFetcher {
+    fn pwd(&self) -> Option<std::path::PathBuf>;
+    fn home(&self) -> Option<String>;
+    fn venv(&self) -> Option<String>;
+}
+
+#[derive(Copy, Clone)]
+struct SysEnv;
+
+impl EnvFetcher for SysEnv {
+    fn pwd(&self) -> Option<std::path::PathBuf> {
+        std::env::current_dir()
+            .or_else(|_| std::env::var("PWD").map(std::path::PathBuf::from))
+            .ok()
+    }
+
+    fn home(&self) -> Option<String> {
+        std::env::var("HOME").ok()
+    }
+
+    fn venv(&self) -> Option<String> {
+        std::env::var("VIRTUAL_ENV").ok()
     }
 }
 

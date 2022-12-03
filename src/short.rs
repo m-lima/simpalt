@@ -9,31 +9,6 @@ macro_rules! chevron {
     };
 }
 
-trait EnvFetcher {
-    fn pwd(&self) -> Option<std::path::PathBuf>;
-    fn home(&self) -> Option<std::path::PathBuf>;
-    fn venv(&self) -> bool;
-}
-
-#[derive(Copy, Clone)]
-struct SysEnv;
-
-impl EnvFetcher for SysEnv {
-    fn pwd(&self) -> Option<std::path::PathBuf> {
-        std::env::current_dir()
-            .or_else(|_| std::env::var("PWD").map(std::path::PathBuf::from))
-            .ok()
-    }
-
-    fn home(&self) -> Option<std::path::PathBuf> {
-        std::env::var("HOME").map(std::path::PathBuf::from).ok()
-    }
-
-    fn venv(&self) -> bool {
-        std::env::var("VIRTUAL_ENV").is_ok()
-    }
-}
-
 pub fn prompt(out: impl std::io::Write, host: Option<String>, error: bool, jobs: bool) -> Result {
     prompt_inner(out, host, error, jobs, &SysEnv)
 }
@@ -45,93 +20,56 @@ fn prompt_inner(
     jobs: bool,
     enver: &impl EnvFetcher,
 ) -> Result {
-    let error = if error {
-        style!(fg = color!(red), symbol!(error) " ")
-    } else {
-        ""
-    };
+    write!(out, style!(bg = color!(black), " "))?;
+    let mut should_recolor = false;
 
-    let jobs = if jobs {
-        style!(fg = color!(cyan), symbol!(jobs) " ")
-    } else {
-        ""
-    };
+    if error {
+        write!(out, style!(fg = color!(red), symbol!(error), " "))?;
+        should_recolor = true;
+    }
 
-    let venv = if enver.venv() {
-        style!(fg = color!(green), symbol!(python))
-    } else {
-        ""
-    };
+    if jobs {
+        write!(out, style!(fg = color!(cyan), symbol!(jobs), " "))?;
+        should_recolor = true;
+    }
 
-    let (host, host_padding) = host.map_or_else(|| (String::new(), ""), |host| (host, " "));
+    if enver.venv() {
+        write!(out, style!(fg = color!(green), symbol!(python), " "))?;
+        should_recolor = true;
+    }
+
+    if let Some(host) = host {
+        if should_recolor {
+            write!(out, style!(fg = color!(reset), "{host}"), host = host)?;
+            should_recolor = false;
+        } else {
+            write!(out, "{host}", host = host)?;
+        }
+        write!(out, concat!(style!(reset), style!(bg = color!(black)), " "))?;
+    }
 
     let pwd = enver.pwd();
 
-    let pwd_string = if let Some(ref pwd) = pwd {
-        pwd_string(pwd, enver)
-    } else {
-        String::new()
-    };
+    if let Some(ref pwd) = pwd {
+        if should_recolor {
+            write!(
+                out,
+                style!(fg = color!(reset), "{pwd} "),
+                pwd = pwd_string(pwd, enver)
+            )?;
+        } else {
+            write!(out, "{pwd} ", pwd = pwd_string(pwd, enver))?;
+        }
+    }
 
-    let git_string = if let Some(ref pwd) = pwd {
-        git_string(git::prompt(pwd))
+    if let Some(ref pwd) = pwd {
+        out.git(git::prompt(pwd))?;
     } else {
-        chevron!(color!(blue))
-    };
+        write!(out, chevron!(color!(blue)))?;
+    }
 
-    write!(
-        out,
-        concat!(
-            style!(bg = color!(black), " {error}{jobs}{venv}"),
-            style!(fg = color!(reset), "{host}"),
-            style!(reset),
-            style!(bg = color!(black), "{host_padding}{pwd_string} "),
-            "{git_string}",
-            style!(reset),
-            " "
-        ),
-        error = error,
-        jobs = jobs,
-        venv = venv,
-        host_padding = host_padding,
-        host = host,
-        pwd_string = pwd_string,
-        git_string = git_string,
-    )?;
+    write!(out, style!(reset, " "))?;
     out.flush()
-}
-
-fn git_string(repo: git::Repo) -> &'static str {
-    macro_rules! branch {
-        ($branch: expr, $color: expr) => {
-            concat!(style!(fg = $branch, symbol!(branch)), chevron!($color))
-        };
-        ($color: expr) => {
-            concat!(symbol!(branch), chevron!($color))
-        };
-    }
-
-    match repo {
-        git::Repo::None => chevron!(color!(blue)),
-        git::Repo::Clean(sync) => match sync {
-            git::Sync::UpToDate => branch!(color!(green)),
-            git::Sync::Behind => branch!(color!(red), color!(green)),
-            git::Sync::Ahead => branch!(color!(yellow), color!(green)),
-            git::Sync::Diverged => branch!(color!(magenta), color!(green)),
-            git::Sync::Local => branch!(color!(blue), color!(green)),
-        },
-        git::Repo::Dirty(sync) => match sync {
-            git::Sync::UpToDate => branch!(color!(yellow)),
-            git::Sync::Behind => branch!(color!(red), color!(yellow)),
-            git::Sync::Ahead => branch!(color!(yellow), color!(yellow)),
-            git::Sync::Diverged => branch!(color!(magenta), color!(yellow)),
-            git::Sync::Local => branch!(color!(blue), color!(yellow)),
-        },
-        git::Repo::Pending => concat!(symbol!(warn), chevron!(color!(cyan))),
-        git::Repo::Untracked => branch!(color!(cyan)),
-        git::Repo::Detached => branch!(color!(magenta)),
-        git::Repo::Error => chevron!(color!(red)),
-    }
 }
 
 fn pwd_string(path: &std::path::PathBuf, enver: &impl EnvFetcher) -> String {
@@ -162,6 +100,79 @@ fn pwd_string(path: &std::path::PathBuf, enver: &impl EnvFetcher) -> String {
         String::from(prefix.as_os_str().to_string_lossy())
     } else {
         String::from(std::path::MAIN_SEPARATOR)
+    }
+}
+
+trait Writer {
+    fn git(&mut self, repo: git::Repo) -> Result;
+}
+
+impl<W: std::io::Write> Writer for W {
+    fn git(&mut self, repo: git::Repo) -> Result {
+        macro_rules! branch {
+            (none $color: expr) => {
+                write!(self, chevron!($color))
+            };
+            (warn $color: expr) => {
+                write!(self, concat!(symbol!(warn), chevron!($color)))
+            };
+            ($branch: expr, $color: expr) => {
+                write!(
+                    self,
+                    style!(fg = $branch, symbol!(branch), chevron!($color))
+                )
+            };
+            ($color: expr) => {
+                write!(self, concat!(symbol!(branch), chevron!($color)))
+            };
+        }
+
+        match repo {
+            git::Repo::None => branch!(none color!(blue)),
+            git::Repo::Clean(sync) => match sync {
+                git::Sync::UpToDate => branch!(color!(green)),
+                git::Sync::Behind => branch!(color!(red), color!(green)),
+                git::Sync::Ahead => branch!(color!(yellow), color!(green)),
+                git::Sync::Diverged => branch!(color!(magenta), color!(green)),
+                git::Sync::Local => branch!(color!(blue), color!(green)),
+            },
+            git::Repo::Dirty(sync) => match sync {
+                git::Sync::UpToDate => branch!(color!(yellow)),
+                git::Sync::Behind => branch!(color!(red), color!(yellow)),
+                git::Sync::Ahead => branch!(color!(yellow), color!(yellow)),
+                git::Sync::Diverged => branch!(color!(magenta), color!(yellow)),
+                git::Sync::Local => branch!(color!(blue), color!(yellow)),
+            },
+            git::Repo::Pending => branch!(warn color!(cyan)),
+            git::Repo::Untracked => branch!(color!(cyan)),
+            git::Repo::Detached => branch!(color!(magenta)),
+            git::Repo::Error => branch!(none color!(red)),
+        }
+    }
+}
+
+trait EnvFetcher {
+    fn pwd(&self) -> Option<std::path::PathBuf>;
+    fn home(&self) -> Option<std::path::PathBuf>;
+    fn venv(&self) -> bool;
+}
+
+#[derive(Copy, Clone)]
+struct SysEnv;
+
+impl EnvFetcher for SysEnv {
+    fn pwd(&self) -> Option<std::path::PathBuf> {
+        std::env::current_dir()
+            .or_else(|_| std::env::var("PWD").map(std::path::PathBuf::from))
+            .ok()
+    }
+
+    fn home(&self) -> Option<std::path::PathBuf> {
+        std::env::var("HOME").map(std::path::PathBuf::from).ok()
+    }
+
+    fn venv(&self) -> bool {
+        std::env::var("VIRTUAL_ENV").is_ok()
     }
 }
 
@@ -260,7 +271,7 @@ mod git {
 
 #[cfg(test)]
 mod tests {
-    use super::{git, git_string, prompt_inner, EnvFetcher};
+    use super::{git, prompt_inner, EnvFetcher, Writer};
     use crate::test;
 
     macro_rules! branch {
@@ -302,12 +313,8 @@ mod tests {
                 style!(bg = color!(black)),
                 " ",
                 // Missing statuses
-                style!(fg = color!(reset)),
                 // Missing HOST
-                style!(reset),
-                style!(bg = color!(black)),
                 // Missing PWD
-                " ",
                 chevron!(color!(blue)),
                 style!(reset),
                 " "
@@ -321,8 +328,8 @@ mod tests {
             prompt_inner(
                 s,
                 None,
-                false,
-                false,
+                true,
+                true,
                 &MockEnv {
                     pwd: Some(std::path::PathBuf::from("/")),
                     ..MockEnv::default()
@@ -334,11 +341,14 @@ mod tests {
             concat!(
                 style!(bg = color!(black)),
                 " ",
-                // Missing statuses
-                style!(fg = color!(reset)),
+                style!(fg = color!(red)),
+                symbol!(error),
+                " ",
+                style!(fg = color!(cyan)),
+                symbol!(jobs),
+                " ",
                 // Missing HOST
-                style!(reset),
-                style!(bg = color!(black)),
+                style!(fg = color!(reset)),
                 "/",
                 " ",
                 chevron!(color!(blue)),
@@ -354,7 +364,7 @@ mod tests {
             prompt_inner(
                 s,
                 None,
-                false,
+                true,
                 false,
                 &MockEnv {
                     pwd: Some(std::path::PathBuf::from("/some/home/path/")),
@@ -368,11 +378,12 @@ mod tests {
             concat!(
                 style!(bg = color!(black)),
                 " ",
-                // Missing statuses
-                style!(fg = color!(reset)),
+                style!(fg = color!(red)),
+                symbol!(error),
+                // Missing jobs
                 // Missing HOST
-                style!(reset),
-                style!(bg = color!(black)),
+                " ",
+                style!(fg = color!(reset)),
                 "path",
                 " ",
                 chevron!(color!(blue)),
@@ -403,10 +414,7 @@ mod tests {
                 style!(bg = color!(black)),
                 " ",
                 // Missing statuses
-                style!(fg = color!(reset)),
                 // Missing HOST
-                style!(reset),
-                style!(bg = color!(black)),
                 "~",
                 " ",
                 chevron!(color!(blue)),
@@ -440,7 +448,8 @@ mod tests {
                 " ",
                 style!(fg = color!(cyan), symbol!(jobs)),
                 " ",
-                style!(fg = color!(green), symbol!(python)), // already contains a space
+                style!(fg = color!(green), symbol!(python)),
+                " ",
                 style!(fg = color!(reset)),
                 style!(fg = color!(red), "H"),
                 style!(reset),
@@ -458,23 +467,23 @@ mod tests {
     #[test]
     fn git_sync_clean() {
         assert_eq!(
-            git_string(git::Repo::Clean(git::Sync::Behind)),
+            test(|s| s.git(git::Repo::Clean(git::Sync::Behind))),
             concat!(branch!(color!(red)), chevron!(color!(green)))
         );
         assert_eq!(
-            git_string(git::Repo::Clean(git::Sync::Ahead)),
+            test(|s| s.git(git::Repo::Clean(git::Sync::Ahead))),
             concat!(branch!(color!(yellow)), chevron!(color!(green)))
         );
         assert_eq!(
-            git_string(git::Repo::Clean(git::Sync::Diverged)),
+            test(|s| s.git(git::Repo::Clean(git::Sync::Diverged))),
             concat!(branch!(color!(magenta)), chevron!(color!(green)))
         );
         assert_eq!(
-            git_string(git::Repo::Clean(git::Sync::UpToDate)),
+            test(|s| s.git(git::Repo::Clean(git::Sync::UpToDate))),
             concat!(branch!(), chevron!(color!(green)))
         );
         assert_eq!(
-            git_string(git::Repo::Clean(git::Sync::Local)),
+            test(|s| s.git(git::Repo::Clean(git::Sync::Local))),
             concat!(branch!(color!(blue)), chevron!(color!(green)))
         );
     }
@@ -482,50 +491,50 @@ mod tests {
     #[test]
     fn git_sync_dirty() {
         assert_eq!(
-            git_string(git::Repo::Dirty(git::Sync::Behind)),
+            test(|s| s.git(git::Repo::Dirty(git::Sync::Behind))),
             concat!(branch!(color!(red)), chevron!(color!(yellow)))
         );
         assert_eq!(
-            git_string(git::Repo::Dirty(git::Sync::Ahead)),
+            test(|s| s.git(git::Repo::Dirty(git::Sync::Ahead))),
             concat!(branch!(color!(yellow)), chevron!(color!(yellow)))
         );
         assert_eq!(
-            git_string(git::Repo::Dirty(git::Sync::Diverged)),
+            test(|s| s.git(git::Repo::Dirty(git::Sync::Diverged))),
             concat!(branch!(color!(magenta)), chevron!(color!(yellow)))
         );
         assert_eq!(
-            git_string(git::Repo::Dirty(git::Sync::UpToDate)),
+            test(|s| s.git(git::Repo::Dirty(git::Sync::UpToDate))),
             concat!(branch!(), chevron!(color!(yellow)))
         );
         assert_eq!(
-            git_string(git::Repo::Dirty(git::Sync::Local)),
+            test(|s| s.git(git::Repo::Dirty(git::Sync::Local))),
             concat!(branch!(color!(blue)), chevron!(color!(yellow)))
         );
     }
 
     #[test]
     fn git_status() {
-        assert_eq!(git_string(git::Repo::None), chevron!(color!(blue)));
+        assert_eq!(test(|s| s.git(git::Repo::None)), chevron!(color!(blue)));
         assert_eq!(
-            git_string(git::Repo::Clean(git::Sync::UpToDate)),
+            test(|s| s.git(git::Repo::Clean(git::Sync::UpToDate))),
             concat!(branch!(), chevron!(color!(green)))
         );
         assert_eq!(
-            git_string(git::Repo::Dirty(git::Sync::UpToDate)),
+            test(|s| s.git(git::Repo::Dirty(git::Sync::UpToDate))),
             concat!(branch!(), chevron!(color!(yellow)))
         );
         assert_eq!(
-            git_string(git::Repo::Detached),
+            test(|s| s.git(git::Repo::Detached)),
             concat!(branch!(), chevron!(color!(magenta)))
         );
         assert_eq!(
-            git_string(git::Repo::Pending),
+            test(|s| s.git(git::Repo::Pending)),
             concat!(symbol!(warn), chevron!(color!(cyan)))
         );
         assert_eq!(
-            git_string(git::Repo::Untracked),
+            test(|s| s.git(git::Repo::Untracked)),
             concat!(branch!(), chevron!(color!(cyan)))
         );
-        assert_eq!(git_string(git::Repo::Error), chevron!(color!(red)));
+        assert_eq!(test(|s| s.git(git::Repo::Error)), chevron!(color!(red)));
     }
 }
