@@ -4,6 +4,8 @@ on:
     paths:
       - '**/Cargo.toml'
       - '**/Cargo.lock'
+    branches:
+      - '**'
     tags-ignore:
       - v*
 
