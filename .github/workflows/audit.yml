@@ -1,14 +1,15 @@
-name: audit
+name: Audit
 on:
   push:
     paths:
-      - '**/Cargo.toml'
-      - '**/Cargo.lock'
+      - **/Cargo.toml
+      - **/Cargo.lock
     tags-ignore:
-      - 'v*'
+      - v*
 
 jobs:
   audit:
+    name: Audit
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v1

@@ -1,16 +1,15 @@
-name: build
+name: Check
 
 on:
   push:
-    tags-ignore:
-      - 'v*'
-
+    branches:
+      - **
 env:
   RUSTFLAGS: "-Dwarnings"
 
 jobs:
-  build:
-    name: Build
+  check:
+    name: Check
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -22,7 +21,7 @@ jobs:
       - name: Format
         run: cargo fmt --all -- --check
       - name: Build
-        run: cargo build --verbose
+        run: cargo check --verbose
       - name: Lint
         run: cargo clippy --verbose -- -W clippy::pedantic
       - name: Test

@@ -1,32 +1,32 @@
-name: release
+name: Release
 
 on:
   push:
     tags:
-      - 'v*'
+      - v*
 
 env:
   RUSTFLAGS: "-Dwarnings"
 
 jobs:
-  # check:
-  #   name: Check
-  #   runs-on: ubuntu-latest
-  #   steps:
-  #     - name: Checkout
-  #       uses: actions/checkout@v3
-  #     - name: Prepare Cargo
-  #       uses: dtolnay/rust-toolchain@stable
-  #       with:
-  #         components: clippy, rustfmt
-  #     - name: Format
-  #       run: cargo fmt --all -- --check
-  #     - name: Build
-  #       run: cargo build --verbose
-  #     - name: Lint
-  #       run: cargo clippy --verbose -- -W clippy::pedantic
-  #     - name: Test
-  #       run: cargo test --verbose --no-fail-fast
+  check:
+    name: Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+      - name: Prepare Cargo
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+      - name: Format
+        run: cargo fmt --all -- --check
+      - name: Build
+        run: cargo check --verbose
+      - name: Lint
+        run: cargo clippy --verbose -- -W clippy::pedantic
+      - name: Test
+        run: cargo test --verbose --no-fail-fast
 
   build:
     name: Build
@@ -35,8 +35,8 @@ jobs:
       matrix:
         os:
           - ubuntu-latest
-          # - macOS-latest
-          # - windows-latest
+          - macOS-latest
+          - windows-latest
     steps:
     - name: Checkout
       uses: actions/checkout@v3
@@ -48,19 +48,19 @@ jobs:
       if: matrix.os != 'windows-latest'
       uses: actions/upload-artifact@v3
       with:
-        name: simpalt-${{ matrix.os }}
+        name: ${{ matrix.os }}
         path: ${{ github.workspace }}/target/release/simpalt
     - name: Upload asset (WINDOWS)
       if: matrix.os == 'windows-latest'
       uses: actions/upload-artifact@v3
       with:
-        name: simpalt-${{ matrix.os }}.exe
+        name: ${{ matrix.os }}
         path: ${{ github.workspace }}/target/release/simpalt.exe
 
   release:
     name: Release
     needs:
-    # - check
+    - check
     - build
     runs-on: ubuntu-latest
     steps:
@@ -77,16 +77,16 @@ jobs:
         echo '**Changes since the last release**' > RELEASE_CHANGES
         git log --format='- %h %s' "${last_tag}${{ github.ref }}" >> RELEASE_CHANGES
         ls -la simpalt-ubuntu-latest/
-        # mv simpalt-ubuntu-latest simpalt-ubuntu
-        # mv simpalt-macOS-latest simpalt-macOS
-        # mv simpalt-windows-latest.exe simpalt-windows.exe
-    # - name: Publish
-    #   uses: softprops/action-gh-release@v1
-    #   with:
-    #     draft: false
-    #     prerelease: false
-    #     body_path: ${{ github.workspace }}/RELEASE_CHANGES
-    #     files: |
-    #         ${{ github.workspace }}/simpalt-ubuntu
-    #         ${{ github.workspace }}/simpalt-macOS
-    #         ${{ github.workspace }}/simpalt-windows.exe
+        mv ubuntu-latest/simpalt simpalt-ubuntu
+        mv macOS-latest/simpalt simpalt-macOS
+        mv windows-latest/simpalt.exe simpalt-windows.exe
+    - name: Publish
+      uses: softprops/action-gh-release@v1
+      with:
+        draft: false
+        prerelease: false
+        body_path: RELEASE_CHANGES
+        files: |
+            simpalt-ubuntu
+            simpalt-macOS
+            simpalt-windows.exe
