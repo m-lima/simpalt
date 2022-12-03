@@ -22,4 +22,4 @@ jobs:
       - name: Lint
         run: cargo clippy --verbose -- -W clippy::pedantic
       - name: Test
-        run: cargo test --verbose --no-fail-fast -- --nocapture
+        run: cargo test --verbose --no-fail-fast
