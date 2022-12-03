@@ -72,7 +72,7 @@ jobs:
       uses: actions/download-artifact@v3
     - name: Prepare contents
       run: |
-        last_tag="$(git describe --tags --abbrev=0 HEAD~1 || true)"
+        last_tag="$(git describe --tags --abbrev=0 HEAD~1 2> /dev/null|| true)"
         [ "${last_tag}" ] && last_tag="${last_tag}.." || true
         echo '**Changes since the last release**' > RELEASE_CHANGES
         git log --format='- %h %s' "${last_tag}${{ github.ref }}" >> RELEASE_CHANGES
