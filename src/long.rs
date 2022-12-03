@@ -133,14 +133,14 @@ impl<W: std::io::Write> Writer for W {
             } else {
                 write!(
                     self,
-                    concat!(" [3{last}m[4{to}m", symbol!(div), "[3{fg}m "),
+                    concat!(" [3{last};4{to}m", symbol!(div), "[3{fg}m "),
                     last = last,
                     to = to,
                     fg = fg,
                 )?;
             }
         } else {
-            write!(self, "[3{fg}m[4{to}m ")?;
+            write!(self, "[3{fg};4{to}m ")?;
         }
         *last = Some(to);
         Ok(())

@@ -6,7 +6,7 @@ macro_rules! style {
     };
 
     (fg = $fg: expr, bg = $bg: expr $(, $($param: expr),*)?) => {
-        concat!("[3", $fg, "m", "[4", $bg, "m" $(, $($param),*)?)
+        concat!("[3", $fg, ";4", $bg, "m" $(, $($param),*)?)
     };
 
     (fg = $color: expr $(, $($param: expr),*)?) => {
@@ -20,7 +20,7 @@ macro_rules! style {
 
 macro_rules! color {
     (black) => {
-        "8;5;236"
+        "0"
     };
     (red) => {
         "1"
