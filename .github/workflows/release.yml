@@ -9,24 +9,24 @@ env:
   RUSTFLAGS: "-Dwarnings"
 
 jobs:
-  check:
-    name: Check
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v3
-      - name: Prepare Cargo
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          components: clippy, rustfmt
-      - name: Format
-        run: cargo fmt --all -- --check
-      - name: Build
-        run: cargo build --verbose
-      - name: Lint
-        run: cargo clippy --verbose -- -W clippy::pedantic
-      - name: Test
-        run: cargo test --verbose --no-fail-fast
+  # check:
+  #   name: Check
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - name: Checkout
+  #       uses: actions/checkout@v3
+  #     - name: Prepare Cargo
+  #       uses: dtolnay/rust-toolchain@stable
+  #       with:
+  #         components: clippy, rustfmt
+  #     - name: Format
+  #       run: cargo fmt --all -- --check
+  #     - name: Build
+  #       run: cargo build --verbose
+  #     - name: Lint
+  #       run: cargo clippy --verbose -- -W clippy::pedantic
+  #     - name: Test
+  #       run: cargo test --verbose --no-fail-fast
 
   build:
     name: Build
@@ -35,8 +35,8 @@ jobs:
       matrix:
         os:
           - ubuntu-latest
-          - macOS-latest
-          - windows-latest
+          # - macOS-latest
+          # - windows-latest
     steps:
     - name: Checkout
       uses: actions/checkout@v3
@@ -60,7 +60,7 @@ jobs:
   release:
     name: Release
     needs:
-    - check
+    # - check
     - build
     runs-on: ubuntu-latest
     steps:
@@ -76,10 +76,10 @@ jobs:
         [ "${last_tag}" ] && last_tag="${last_tag}.."
         echo '**Changes since the last release**' > RELEASE_CHANGES
         git log --format='- %h %s' "${last_tag}${{ github.ref }}" >> RELEASE_CHANGES
-        mv simpalt-ubuntu-latest simpalt-ubuntu
-        mv simpalt-macOS-latest simpalt-macOS
-        mv simpalt-windows-latest.exe simpalt-windows.exe
-        ls -la
+        ls -la simpalt-ubuntu-latest/
+        # mv simpalt-ubuntu-latest simpalt-ubuntu
+        # mv simpalt-macOS-latest simpalt-macOS
+        # mv simpalt-windows-latest.exe simpalt-windows.exe
     # - name: Publish
     #   uses: softprops/action-gh-release@v1
     #   with:
