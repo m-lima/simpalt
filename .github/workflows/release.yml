@@ -9,6 +9,25 @@ env:
   RUSTFLAGS: "-Dwarnings"
 
 jobs:
+  check:
+    name: Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+      - name: Prepare Cargo
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+      - name: Format
+        run: cargo fmt --all -- --check
+      - name: Build
+        run: cargo build --verbose
+      - name: Lint
+        run: cargo clippy --verbose -- -W clippy::pedantic
+      - name: Test
+        run: cargo test --verbose --no-fail-fast
+
   build:
     name: Build
     runs-on: ${{ matrix.os }}
@@ -39,8 +58,10 @@ jobs:
         path: ${{ github.workspace }}/target/release/simpalt.exe
 
   release:
-    needs: [build]
     name: Release
+    needs:
+    - check
+    - build
     runs-on: ubuntu-latest
     steps:
     - name: Checkout
@@ -58,13 +79,14 @@ jobs:
         mv simpalt-ubuntu-latest simpalt-ubuntu
         mv simpalt-macOS-latest simpalt-macOS
         mv simpalt-windows-latest.exe simpalt-windows.exe
-    - name: Create
-      uses: softprops/action-gh-release@v1
-      with:
-        draft: false
-        prerelease: false
-        body_path: ${{ github.workspace }}/RELEASE_CHANGES
-        files: |
-            ${{ github.workspace }}/simpalt-ubuntu
-            ${{ github.workspace }}/simpalt-macOS
-            ${{ github.workspace }}/simpalt-windows.exe
+        ls -la
+    # - name: Publish
+    #   uses: softprops/action-gh-release@v1
+    #   with:
+    #     draft: false
+    #     prerelease: false
+    #     body_path: ${{ github.workspace }}/RELEASE_CHANGES
+    #     files: |
+    #         ${{ github.workspace }}/simpalt-ubuntu
+    #         ${{ github.workspace }}/simpalt-macOS
+    #         ${{ github.workspace }}/simpalt-windows.exe
