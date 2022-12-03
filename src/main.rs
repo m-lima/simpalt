@@ -114,6 +114,7 @@ macro_rules! symbol {
     };
 }
 
+mod compatibility;
 mod long;
 mod short;
 
@@ -128,7 +129,11 @@ fn main() {
     drop(match command.as_deref() {
         Some("l") => left(out, args),
         Some("r") => right(out),
-        Some("e") => escape(out, args),
+        Some("c") => match args.next().as_deref() {
+            Some("zsh") => compatibility::zsh(out, std::io::stdin().lock()),
+            Some("posh") => compatibility::posh(out, std::io::stdin().lock()),
+            _ => help(out, bin),
+        },
         _ => help(out, bin),
     });
 }
@@ -172,22 +177,6 @@ fn right(mut out: impl std::io::Write) -> Result {
     out.flush()
 }
 
-fn escape(mut out: impl std::io::Write, mut args: impl Iterator<Item = String>) -> Result {
-    if let Some(ref arg) = args.next() {
-        let regex = regex::Regex::new(r#"(\[(m\[|[0-9;])*m)"#).unwrap();
-
-        write!(
-            out,
-            "{}",
-            regex.replace_all(arg, |cap: &regex::Captures<'_>| {
-                format!("%{{{escape}%}}", escape = &cap[1])
-            })
-        )
-    } else {
-        Ok(())
-    }
-}
-
 fn help(mut out: impl std::io::Write, bin: Option<String>) -> Result {
     let bin = bin
         .map(std::path::PathBuf::from)
@@ -198,10 +187,10 @@ fn help(mut out: impl std::io::Write, bin: Option<String>) -> Result {
         })
         .unwrap_or_else(|| String::from(env!("CARGO_BIN_NAME")));
 
-    writeln!(out, "Usage: {bin} <COMMAND> [HOST|-e|-j|-l]*",)?;
+    writeln!(out, "Usage: {bin} <COMMAND> [ARGUMENTS]*",)?;
     writeln!(out)?;
     writeln!(out, "Commands:")?;
-    writeln!(out, "  e  Escape string for ZSH")?;
+    writeln!(out, "  c  Compatibility layer")?;
     writeln!(out, "  r  Generate right side prompt")?;
     writeln!(out, "  l  Generate left side prompt")?;
     writeln!(out, "  h  Show this help message")?;
@@ -209,11 +198,14 @@ fn help(mut out: impl std::io::Write, bin: Option<String>) -> Result {
     writeln!(out, "Arguments (only for left side prompt):")?;
     writeln!(
         out,
-        "  HOST  Symbol to be used as host (can contain ansi escape codes)"
+        "  HOST   Symbol to be used as host (can contain ansi escape codes)"
     )?;
-    writeln!(out, "  -e    Last command was an error")?;
-    writeln!(out, "  -j    There are background processes running")?;
-    writeln!(out, "  -l    Use the long format")?;
+    writeln!(out, "  -e     Last command was an error")?;
+    writeln!(out, "  -j     There are background processes running")?;
+    writeln!(out, "  -l     Use the long format")?;
+    writeln!(out)?;
+    writeln!(out, "Arguments (only for compatibility layer):")?;
+    writeln!(out, "  SHELL  The compatibility requested [zsh|posh]")?;
     out.flush()
 }
 
@@ -230,24 +222,6 @@ where
 #[cfg(test)]
 mod tests {
     use super::test;
-
-    #[test]
-    fn zsh_escape_regex() {
-        use super::escape;
-        use std::iter::once;
-
-        let input = once(String::from("abc[31mdef"));
-        let output = String::from("abc%{[31m%}def");
-        assert_eq!(test(|s| escape(s, input)), output);
-
-        let input = once(String::from("[38;5;2mabc[mdef"));
-        let output = String::from("%{[38;5;2m%}abc%{[m%}def");
-        assert_eq!(test(|s| escape(s, input)), output);
-
-        let input = once(String::from("[38;5;2m[41mabc[49mdef"));
-        let output = String::from("%{[38;5;2m[41m%}abc%{[49m%}def");
-        assert_eq!(test(|s| escape(s, input)), output);
-    }
 
     #[test]
     fn right() {

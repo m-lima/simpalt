@@ -3,12 +3,14 @@ name = "simpalt"
 version = "0.1.1"
 edition = "2021"
 
-[dependencies]
-chrono = "0.4.23"
-git2 = "0.15.0"
-regex = "1.7.0"
-
 [profile.release]
 strip = true
 lto = true
 codegen-units = 1
+
+[dependencies]
+chrono = "0.4.23"
+git2 = "0.15.0"
+
+[dev-dependencies]
+regex = "1.7.0"
