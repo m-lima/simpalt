@@ -131,6 +131,13 @@ fn main() {
         Some("r") => right(out),
         Some("c") => match args.next().as_deref() {
             Some("zsh") => compatibility::zsh(out, std::io::stdin().lock()),
+            Some("win") => {
+                if let Some(ref replacement) = args.next() {
+                    compatibility::win(out, std::io::stdin().lock(), replacement)
+                } else {
+                    help(out, bin)
+                }
+            }
             _ => help(out, bin),
         },
         _ => help(out, bin),
@@ -186,25 +193,23 @@ fn help(mut out: impl std::io::Write, bin: Option<String>) -> Result {
         })
         .unwrap_or_else(|| String::from(env!("CARGO_BIN_NAME")));
 
-    writeln!(out, "Usage: {bin} <COMMAND> [ARGUMENTS]*",)?;
+    writeln!(out, "Usage: {bin} <COMMAND>",)?;
     writeln!(out)?;
     writeln!(out, "Commands:")?;
-    writeln!(out, "  c  Compatibility layer")?;
-    writeln!(out, "  r  Generate right side prompt")?;
-    writeln!(out, "  l  Generate left side prompt")?;
-    writeln!(out, "  h  Show this help message")?;
+    writeln!(out, "  c      Compatibility layer")?;
+    writeln!(out, "  r      Generate right side prompt")?;
+    writeln!(out, "  l      Generate left side prompt")?;
+    writeln!(out, "  h      Show this help message")?;
     writeln!(out)?;
-    writeln!(out, "Arguments (only for left side prompt):")?;
-    writeln!(
-        out,
-        "  HOST   Symbol to be used as host (can contain ansi escape codes)"
-    )?;
+    writeln!(out, "Arguments for `l` command:")?;
+    writeln!(out, "  HOST   Symbol to be used as host (can be escaped)",)?;
     writeln!(out, "  -e     Last command was an error")?;
     writeln!(out, "  -j     There are background processes running")?;
     writeln!(out, "  -l     Use the long format")?;
     writeln!(out)?;
-    writeln!(out, "Arguments (only for compatibility layer):")?;
-    writeln!(out, "  SHELL  The compatibility requested [zsh|posh]")?;
+    writeln!(out, "Arguments `c` command:")?;
+    writeln!(out, "  zsh    Wrap escape sequences in `%{{%}}` for zsh")?;
+    writeln!(out, "  win CL Replace back background with CL")?;
     out.flush()
 }
 

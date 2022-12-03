@@ -73,7 +73,7 @@ fn prompt_inner(
                             behind: 0
                         }
                     ) {
-                        out.div(&mut last, color!(black), color!([247]))?;
+                        out.div(&mut last, color!(black), color!(reset))?;
                         write!(out, symbol!(div thin))?;
                         out.render_sync(&mut last, sync)?;
                     }
