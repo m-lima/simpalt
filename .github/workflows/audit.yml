@@ -2,8 +2,8 @@ name: Audit
 on:
   push:
     paths:
-      - **/Cargo.toml
-      - **/Cargo.lock
+      - '**/Cargo.toml'
+      - '**/Cargo.lock'
     tags-ignore:
       - v*
 
