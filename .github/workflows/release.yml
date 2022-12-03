@@ -6,34 +6,7 @@ on:
     - 'v*'
 
 jobs:
-  release:
-    name: Release
-    runs-on: ubuntu-latest
-    outputs:
-      upload_url: ${{ steps.create_release.outputs.upload_url }}
-    steps:
-    - name: Checkout
-      uses: actions/checkout@v3
-    - name: Release body
-      id: release_body
-      run: |
-        body=$(git log --format='[%h] %s' $(git describe --tags --abbrev=0 HEAD~1)..${{ github.ref }})
-        body="${body//'%'/'%25'}"
-        body="${body//$'\n'/'%0A'}"
-        body="${body//$'\r'/'%0D'}"
-        echo "release_body=$body" >> $GITHUB_OUTPUT
-    - name: Create
-      id: create_release
-      uses: softprops/action-gh-release@v1
-      with:
-        name: ${{ github.ref }}
-        tag_name: ${{ github.ref }}
-        draft: false
-        prerelease: false
-        body: '**Changes since last release**\n${{ steps.release_body.outputs.release_body }}'
-
   build:
-    needs: [release]
     name: Build
     runs-on: ${{ matrix.os }}
     strategy:
@@ -45,32 +18,45 @@ jobs:
     steps:
     - name: Checkout
       uses: actions/checkout@v3
-    - name: Prepare
-      uses: actions-rs/toolchain@v1
-      with:
-        toolchain: stable
-    - name: Build release
-      uses: actions-rs/cargo@v1
-      with:
-        command: build
-        args: --verbose --release
+    - name: Build
+      uses: dtolnay/rust-toolchain@stable
+      run: cargo --release --verbose
     - name: Upload asset (UNIX)
       if: matrix.os != 'windows-latest'
-      uses: actions/upload-release-asset@v1.0.1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      uses: actions/upload-artifact@v3
       with:
-        upload_url: ${{ needs.release.outputs.upload_url }}
-        asset_path: ./target/release/simpalt
-        asset_name: simpalt-${{ steps.load_release.outputs.os_name }}
-        asset_content_type: application/octet-stream
+        name: simpalt-${{ matrix.os }}
+        path: ${{ github.workspace }}/target/release/simpalt
     - name: Upload asset (WINDOWS)
       if: matrix.os == 'windows-latest'
-      uses: actions/upload-release-asset@v1.0.1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      uses: actions/upload-artifact@v3
       with:
-        upload_url: ${{ needs.release.outputs.upload_url }}
-        asset_path: ./target/release/simpalt.exe
-        asset_name: simpalt-${{ steps.load_release.outputs.os_name }}.exe
-        asset_content_type: application/octet-stream
+        name: simpalt-${{ matrix.os }}.exe
+        path: ${{ github.workspace }}/target/release/simpalt.exe
+
+  release:
+    needs: [build]
+    name: Release
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v3
+    - name: Download artifacts
+      uses: actions/download-artifact@v3
+    - name: Prepare contents
+      run: |
+        echo '**Changes since the last release**' > RELEASE_CHANGES
+        git log --format='- %h %s' "$(git describe --tags --abbrev=0 HEAD~1)".."${{ github.ref }}" >> RELEASE_CHANGES
+        mv simpalt-ubuntu-latest simpalt-ubuntu
+        mv simpalt-macOS-latest simpalt-macOS
+        mv simpalt-windows-latest.exe simpalt-windows.exe
+    - name: Create
+      uses: softprops/action-gh-release@v1
+      with:
+        draft: false
+        prerelease: false
+        body_path: RELEASE_CHANGES
+        files: |
+            simpalt-ubuntu
+            simpalt-macOS
+            simpalt-windows.exe
