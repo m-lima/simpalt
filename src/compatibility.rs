@@ -52,10 +52,6 @@ pub fn zsh(mut output: impl std::io::Write, mut input: impl std::io::Read) -> Re
     Ok(())
 }
 
-pub fn posh(_: impl std::io::Write, _: impl std::io::Read) -> Result {
-    unimplemented!()
-}
-
 #[cfg(test)]
 mod tests {
     use crate::test;

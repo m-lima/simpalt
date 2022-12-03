@@ -20,7 +20,7 @@ macro_rules! style {
 
 macro_rules! color {
     (black) => {
-        "0"
+        "8;5;236"
     };
     (red) => {
         "1"
@@ -131,7 +131,6 @@ fn main() {
         Some("r") => right(out),
         Some("c") => match args.next().as_deref() {
             Some("zsh") => compatibility::zsh(out, std::io::stdin().lock()),
-            Some("posh") => compatibility::posh(out, std::io::stdin().lock()),
             _ => help(out, bin),
         },
         _ => help(out, bin),
