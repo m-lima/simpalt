@@ -4,8 +4,8 @@ if (which simpalt | is-empty) {
   {}
 } else {
   let simpalt_version = (simpalt v | str trim)
-  if $simpalt_version != "0.2.1" {
-    print $'(ansi yellow)Prompt info:(ansi reset) Expected version (ansi white)0.2.1(ansi reset) but `simpalt` is reporting version (ansi white)'($simpalt_version)'(ansi reset)'
+  if $simpalt_version != "0.2.0" {
+    print $'(ansi yellow)Prompt info:(ansi reset) Expected version (ansi white)0.2.0(ansi reset) but `simpalt` is reporting version (ansi white)'($simpalt_version)'(ansi reset)'
     print $'Check (ansi blue)https://github.com/m-lima/simpalt-rs/releases(ansi reset) for the latest version'
   }
 
