@@ -129,6 +129,7 @@ fn main() {
     drop(match command.as_deref() {
         Some("l") => left(out, args),
         Some("r") => right(out),
+        Some("v") => version(out),
         Some("c") => match args.next().as_deref() {
             Some("zsh") => compatibility::zsh(out, std::io::stdin().lock()),
             Some("win") => {
@@ -183,6 +184,11 @@ fn right(mut out: impl std::io::Write) -> Result {
     out.flush()
 }
 
+fn version(mut out: impl std::io::Write) -> Result {
+    writeln!(out, env!("CARGO_PKG_VERSION"))?;
+    out.flush()
+}
+
 fn help(mut out: impl std::io::Write, bin: Option<String>) -> Result {
     let bin = bin
         .map(std::path::PathBuf::from)
@@ -199,6 +205,7 @@ fn help(mut out: impl std::io::Write, bin: Option<String>) -> Result {
     writeln!(out, "  c      Compatibility layer")?;
     writeln!(out, "  r      Generate right side prompt")?;
     writeln!(out, "  l      Generate left side prompt")?;
+    writeln!(out, "  v      Print the current version")?;
     writeln!(out, "  h      Show this help message")?;
     writeln!(out)?;
     writeln!(out, "Arguments for `l` command:")?;
