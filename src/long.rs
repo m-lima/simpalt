@@ -26,8 +26,7 @@ fn prompt_inner(
     if let Some(host) = host {
         out.div(&mut last, color!(black), color!(reset))?;
         write!(out, "{host}")?;
-        write!(out, style!(reset))?;
-        write!(out, style!(bg = color!(black)))?;
+        write!(out, style!(reset to bg = color!(black)))?;
     };
 
     if let Some(venv) = enver.venv() {
@@ -548,8 +547,7 @@ mod tests {
                 style!(fg = color!(cyan), symbol!(jobs)),
                 " ",
                 style!(fg = color!(reset), style!(fg = color!(red), "H")),
-                style!(reset),
-                style!(bg = color!(black)),
+                style!(reset to bg = color!(black)),
                 " ",
                 style!(fg = color!(black), bg = color!(cyan), symbol!(div)),
                 style!(fg = color!(black)),

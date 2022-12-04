@@ -5,6 +5,14 @@ macro_rules! style {
         concat!("[m" $(, $($param),*)?)
     };
 
+    (reset to fg = $color: expr $(, $($param: expr),*)?) => {
+        concat!("[;3", $color, "m" $(, $($param),*)?)
+    };
+
+    (reset to bg = $color: expr $(, $($param: expr),*)?) => {
+        concat!("[;4", $color, "m" $(, $($param),*)?)
+    };
+
     (fg = $fg: expr, bg = $bg: expr $(, $($param: expr),*)?) => {
         concat!("[3", $fg, ";4", $bg, "m" $(, $($param),*)?)
     };

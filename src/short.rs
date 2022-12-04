@@ -4,7 +4,7 @@ macro_rules! chevron {
     ($color: expr) => {
         concat!(
             style!(fg = color!(black), bg = $color, symbol!(div)),
-            style!(fg = $color, bg = color!(reset), symbol!(div)),
+            style!(reset to fg = $color, symbol!(div)),
         )
     };
 }
@@ -20,7 +20,7 @@ fn prompt_inner(
     jobs: bool,
     enver: &impl EnvFetcher,
 ) -> Result {
-    write!(out, style!(bg = color!(black), " "))?;
+    write!(out, style!(reset to bg = color!(black), " "))?;
     let mut should_recolor = false;
 
     if error {
@@ -45,7 +45,7 @@ fn prompt_inner(
         } else {
             write!(out, "{host}", host = host)?;
         }
-        write!(out, concat!(style!(reset), style!(bg = color!(black)), " "))?;
+        write!(out, style!(reset to bg = color!(black), " "))?;
     }
 
     let pwd = enver.pwd();
@@ -310,7 +310,7 @@ mod tests {
         assert_eq!(
             result,
             concat!(
-                style!(bg = color!(black)),
+                style!(reset to bg = color!(black)),
                 " ",
                 // Missing statuses
                 // Missing HOST
@@ -339,7 +339,7 @@ mod tests {
         assert_eq!(
             result,
             concat!(
-                style!(bg = color!(black)),
+                style!(reset to bg = color!(black)),
                 " ",
                 style!(fg = color!(red)),
                 symbol!(error),
@@ -376,7 +376,7 @@ mod tests {
         assert_eq!(
             result,
             concat!(
-                style!(bg = color!(black)),
+                style!(reset to bg = color!(black)),
                 " ",
                 style!(fg = color!(red)),
                 symbol!(error),
@@ -411,7 +411,7 @@ mod tests {
         assert_eq!(
             result,
             concat!(
-                style!(bg = color!(black)),
+                style!(reset to bg = color!(black)),
                 " ",
                 // Missing statuses
                 // Missing HOST
@@ -442,7 +442,7 @@ mod tests {
         assert_eq!(
             result,
             concat!(
-                style!(bg = color!(black)),
+                style!(reset to bg = color!(black)),
                 " ",
                 style!(fg = color!(red), symbol!(error)),
                 " ",
@@ -452,8 +452,7 @@ mod tests {
                 " ",
                 style!(fg = color!(reset)),
                 style!(fg = color!(red), "H"),
-                style!(reset),
-                style!(bg = color!(black)),
+                style!(reset to bg = color!(black)),
                 " ",
                 "~",
                 " ",
