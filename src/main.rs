@@ -120,13 +120,21 @@ macro_rules! symbol {
     (div thin) => {
         ""
     };
+    (slant) => {
+        ""
+    };
+    (slant thin) => {
+        ""
+    };
 }
 
 mod compatibility;
+mod git;
 mod long;
 mod short;
+mod tmux;
 
-type Result = std::io::Result<()>;
+type Result<T = ()> = std::io::Result<T>;
 
 fn main() {
     let mut args = std::env::args();
@@ -137,6 +145,13 @@ fn main() {
     drop(match command.as_deref() {
         Some("l") => left(out, args),
         Some("r") => right(out),
+        Some("t") => {
+            if let Some(pwd) = args.next() {
+                tmux::render(out, pwd)
+            } else {
+                help(out, bin)
+            }
+        }
         Some("v") => version(out),
         Some("c") => match args.next().as_deref() {
             Some("zsh") => compatibility::zsh(out, std::io::stdin().lock()),
@@ -151,6 +166,41 @@ fn main() {
         },
         _ => help(out, bin),
     });
+}
+
+fn help(mut out: impl std::io::Write, bin: Option<String>) -> Result {
+    let bin = bin
+        .map(std::path::PathBuf::from)
+        .and_then(|p| {
+            p.file_name()
+                .and_then(std::ffi::OsStr::to_str)
+                .map(String::from)
+        })
+        .unwrap_or_else(|| String::from(env!("CARGO_BIN_NAME")));
+
+    writeln!(out, "Usage: {bin} <COMMAND>",)?;
+    writeln!(out)?;
+    writeln!(out, "Commands:")?;
+    writeln!(out, "  c      Compatibility layer")?;
+    writeln!(out, "  r      Generate right side prompt")?;
+    writeln!(out, "  l      Generate left side prompt")?;
+    writeln!(out, "  t      Generate tmux right side status")?;
+    writeln!(out, "  v      Print the current version")?;
+    writeln!(out, "  h      Show this help message")?;
+    writeln!(out)?;
+    writeln!(out, "Arguments for `l` command:")?;
+    writeln!(out, "  HOST   Symbol to be used as host (can be escaped)",)?;
+    writeln!(out, "  -e     Last command was an error")?;
+    writeln!(out, "  -j     There are background processes running")?;
+    writeln!(out, "  -l     Use the long format")?;
+    writeln!(out)?;
+    writeln!(out, "Arguments for `t` command:")?;
+    writeln!(out, "  PWD    Working directory for command",)?;
+    writeln!(out)?;
+    writeln!(out, "Arguments `c` command:")?;
+    writeln!(out, "  zsh    Wrap escape sequences in `%{{%}}` for zsh")?;
+    writeln!(out, "  win CL Replace back background with CL")?;
+    out.flush()
 }
 
 fn left(out: impl std::io::Write, args: impl Iterator<Item = String>) -> Result {
@@ -194,37 +244,6 @@ fn right(mut out: impl std::io::Write) -> Result {
 
 fn version(mut out: impl std::io::Write) -> Result {
     writeln!(out, env!("CARGO_PKG_VERSION"))?;
-    out.flush()
-}
-
-fn help(mut out: impl std::io::Write, bin: Option<String>) -> Result {
-    let bin = bin
-        .map(std::path::PathBuf::from)
-        .and_then(|p| {
-            p.file_name()
-                .and_then(std::ffi::OsStr::to_str)
-                .map(String::from)
-        })
-        .unwrap_or_else(|| String::from(env!("CARGO_BIN_NAME")));
-
-    writeln!(out, "Usage: {bin} <COMMAND>",)?;
-    writeln!(out)?;
-    writeln!(out, "Commands:")?;
-    writeln!(out, "  c      Compatibility layer")?;
-    writeln!(out, "  r      Generate right side prompt")?;
-    writeln!(out, "  l      Generate left side prompt")?;
-    writeln!(out, "  v      Print the current version")?;
-    writeln!(out, "  h      Show this help message")?;
-    writeln!(out)?;
-    writeln!(out, "Arguments for `l` command:")?;
-    writeln!(out, "  HOST   Symbol to be used as host (can be escaped)",)?;
-    writeln!(out, "  -e     Last command was an error")?;
-    writeln!(out, "  -j     There are background processes running")?;
-    writeln!(out, "  -l     Use the long format")?;
-    writeln!(out)?;
-    writeln!(out, "Arguments `c` command:")?;
-    writeln!(out, "  zsh    Wrap escape sequences in `%{{%}}` for zsh")?;
-    writeln!(out, "  win CL Replace back background with CL")?;
     out.flush()
 }
 
