@@ -36,6 +36,7 @@ if (which simpalt | is-empty) {
     PROMPT_COMMAND_RIGHT: { simpalt r }
     SIMPALT_LONG: false
     SIMPALT_HOST: $simpalt_host
+    VIRTUAL_ENV_DISABLE_PROMPT: true
     PROMPT_INDICATOR: ''
     PROMPT_INDICATOR_VI_INSERT: ''
     PROMPT_INDICATOR_VI_NORMAL: ''
