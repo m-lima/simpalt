@@ -44,10 +44,16 @@ macro_rules! color {
     (white) => {
         "white"
     };
-    ([$param: literal]) => {
+    (gray) => {
+        color!(246)
+    };
+    (dark gray) => {
+        color!(236)
+    };
+    ($param: literal) => {
         concat!("colour", $param)
     };
-    ([$r: literal, $g: literal, $b: literal]) => {
+    ($r: literal, $g: literal, $b: literal) => {
         concat!("#", $r, $g, $b)
     };
     (reset) => {
@@ -63,64 +69,35 @@ fn render_git(mut out: impl std::io::Write, repo: git::Repo) -> Result {
     match repo {
         git::Repo::None | git::Repo::Error => Ok(()),
         git::Repo::Regular(head, sync, changes) => {
-            if changes.clean() {
-                write!(out, style!(fg = color!(green), symbol!(slant)))?;
-                write!(
-                    out,
-                    style!(
-                        fg = color!(black),
-                        bg = color!(green),
-                        " ",
-                        symbol!(branch),
-                        "{head} "
-                    ),
-                    head = head,
-                )?;
-            } else {
-                write!(out, style!(fg = color!(yellow), symbol!(slant)))?;
-                write!(
-                    out,
-                    style!(
-                        fg = color!(black),
-                        bg = color!(yellow),
-                        " ",
-                        symbol!(branch),
-                        "{head} "
-                    ),
-                    head = head,
-                )?;
-            }
+            write!(out, style!(fg = color!(237), symbol!(slant)))?;
+            write!(
+                out,
+                style!(fg = color!(magenta), bg = color!(237), " ", symbol!(branch))
+            )?;
+            write!(out, style!(fg = color!(gray), "{head} "), head = head)?;
             let changed_bg = render_changes(&mut out, changes)?;
             render_sync(&mut out, sync, changed_bg)?;
             out.flush()
         }
         git::Repo::Detached(head, changes) => {
-            write!(out, style!(fg = color!(magenta), symbol!(slant)))?;
+            write!(out, style!(fg = color!(237), symbol!(slant)))?;
             write!(
                 out,
-                style!(
-                    fg = color!(black),
-                    bg = color!(magenta),
-                    " ",
-                    symbol!(branch),
-                    "{head} "
-                ),
-                head = head,
+                style!(fg = color!(magenta), bg = color!(237), " ", symbol!(branch))
             )?;
+            write!(out, style!(fg = color!(gray), "{head} "), head = head)?;
             render_changes(&mut out, changes)?;
             out.flush()
         }
         git::Repo::Pending(head, pending, changes) => {
-            write!(out, style!(fg = color!(cyan), symbol!(slant)))?;
+            write!(out, style!(fg = color!(237), symbol!(slant)))?;
             write!(
                 out,
-                style!(
-                    fg = color!(black),
-                    bg = color!(cyan),
-                    " ",
-                    symbol!(branch),
-                    "{head} {pending} "
-                ),
+                style!(fg = color!(magenta), bg = color!(237), " ", symbol!(branch))
+            )?;
+            write!(
+                out,
+                style!(fg = color!(gray), "{head} {pending}"),
                 head = head,
                 pending = pending_symbol(pending),
             )?;
@@ -128,11 +105,6 @@ fn render_git(mut out: impl std::io::Write, repo: git::Repo) -> Result {
             out.flush()
         }
         git::Repo::New(changes) => {
-            write!(out, style!(fg = color!(cyan), symbol!(slant)))?;
-            write!(
-                out,
-                style!(fg = color!(reset), bg = color!(cyan), symbol!(new))
-            )?;
             render_changes(&mut out, changes)?;
             out.flush()
         }
@@ -142,10 +114,10 @@ fn render_git(mut out: impl std::io::Write, repo: git::Repo) -> Result {
 fn render_changes(out: &mut impl std::io::Write, changes: git::Changes) -> Result<bool> {
     let mut changed_bg = false;
     if changes.added > 0 {
-        write!(out, style!(fg = color!(black), symbol!(slant)))?;
+        write!(out, style!(fg = color!(dark gray), symbol!(slant)))?;
         write!(
             out,
-            style!(fg = color!(green), bg = color!(black), " +{added}"),
+            style!(fg = color!(green), bg = color!(dark gray), " +{added}"),
             added = changes.added
         )?;
         changed_bg = true;
@@ -159,10 +131,10 @@ fn render_changes(out: &mut impl std::io::Write, changes: git::Changes) -> Resul
                 removed = changes.removed
             )?;
         } else {
-            write!(out, style!(fg = color!(black), symbol!(slant)))?;
+            write!(out, style!(fg = color!(dark gray), symbol!(slant)))?;
             write!(
                 out,
-                style!(fg = color!(red), bg = color!(black), " -{removed}"),
+                style!(fg = color!(red), bg = color!(dark gray), " -{removed}"),
                 removed = changes.removed
             )?;
             changed_bg = true;
@@ -177,10 +149,10 @@ fn render_changes(out: &mut impl std::io::Write, changes: git::Changes) -> Resul
                 modified = changes.modified
             )?;
         } else {
-            write!(out, style!(fg = color!(black), symbol!(slant)))?;
+            write!(out, style!(fg = color!(dark gray), symbol!(slant)))?;
             write!(
                 out,
-                style!(fg = color!(blue), bg = color!(black), " ~{modified}"),
+                style!(fg = color!(blue), bg = color!(dark gray), " ~{modified}"),
                 modified = changes.modified
             )?;
             changed_bg = true;
@@ -195,10 +167,14 @@ fn render_changes(out: &mut impl std::io::Write, changes: git::Changes) -> Resul
                 conflicted = changes.conflicted
             )?;
         } else {
-            write!(out, style!(fg = color!(black), symbol!(slant)))?;
+            write!(out, style!(fg = color!(dark gray), symbol!(slant)))?;
             write!(
                 out,
-                style!(fg = color!(magenta), bg = color!(black), " !{conflicted}"),
+                style!(
+                    fg = color!(magenta),
+                    bg = color!(dark gray),
+                    " !{conflicted}"
+                ),
                 conflicted = changes.conflicted
             )?;
             changed_bg = true;
@@ -217,11 +193,11 @@ fn render_sync(out: &mut impl std::io::Write, sync: git::Sync, changed_bg: bool)
         if changed_bg {
             write!(
                 out,
-                style!(fg = color!([248]), " ", symbol!(slant thin), " ")
+                style!(fg = color!(gray), " ", symbol!(slant thin), " ")
             )
         } else {
-            write!(out, style!(fg = color!([248]), symbol!(slant thin)))?;
-            write!(out, style!(bg = color!(black), " "))
+            write!(out, style!(fg = color!(gray), symbol!(slant thin)))?;
+            write!(out, style!(bg = color!(dark gray), " "))
         }
     }
 
