@@ -12,7 +12,7 @@ if `command -v simpalt &> /dev/null`; then
 
   __simpalt_build_r_prompt() {
     if (( COLUMNS > 120 )); then
-      simpalt e "$(simpalt r)"
+      simpalt r | simpalt c zsh
     fi
   }
 
