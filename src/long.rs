@@ -346,19 +346,16 @@ mod git {
             }
         }
 
-        let repo = match git2::Repository::open(path).ok() {
-            Some(repo) => repo,
-            None => return Repo::None,
+        let Some(repo) = git2::Repository::open(path).ok() else{
+            return Repo::None;
         };
 
-        let changes = match get_changes(&repo) {
-            Some(changes) => changes,
-            None => return Repo::Error,
+        let Some(changes) = get_changes(&repo) else {
+            return Repo::Error;
         };
 
-        let head = match repo.head() {
-            Ok(head) => head,
-            Err(_) => return Repo::New(changes),
+        let Ok(head) = repo.head() else {
+            return Repo::New(changes);
         };
 
         let head = head.shorthand().map_or_else(

@@ -43,7 +43,7 @@ fn prompt_inner(
             write!(out, style!(fg = color!(reset), "{host}"), host = host)?;
             should_recolor = false;
         } else {
-            write!(out, "{host}", host = host)?;
+            write!(out, "{host}")?;
         }
         write!(out, style!(reset to bg = color!(black), " "))?;
     }
@@ -226,9 +226,8 @@ mod git {
     }
 
     pub fn prompt(path: &std::path::PathBuf) -> Repo {
-        let repo = match git2::Repository::open(path).ok() {
-            Some(repo) => repo,
-            None => return Repo::None,
+        let Ok(repo) = git2::Repository::open(path) else {
+            return Repo::None;
         };
 
         if repo.state() != git2::RepositoryState::Clean {
@@ -252,13 +251,12 @@ mod git {
             },
         };
 
-        let status = match repo.statuses(Some(
+        let Ok(status) = repo.statuses(Some(
             git2::StatusOptions::new()
                 .include_ignored(false)
                 .include_untracked(true),
-        )) {
-            Ok(status) => status,
-            Err(_) => return Repo::Error,
+        )) else {
+            return Repo::Error;
         };
 
         if status.iter().next().is_some() {

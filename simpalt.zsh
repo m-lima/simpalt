@@ -21,7 +21,8 @@ if `command -v simpalt &> /dev/null`; then
     zle reset-prompt
   }
 
-  # Allow toggling
+  # Allow toggling. E.g.:
+  # bindkey '^T' simpalt_toggle_mode
   zle -N simpalt_toggle_mode
 
   # Allow `eval` for the prompt
