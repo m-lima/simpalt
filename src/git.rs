@@ -48,10 +48,7 @@ pub mod short {
     }
 
     pub fn prompt(path: &std::path::PathBuf) -> Repo {
-        let repo = match git2::Repository::open(path).ok() {
-            Some(repo) => repo,
-            None => return Repo::None,
-        };
+        let Some(repo) = git2::Repository::open(path).ok() else { return Repo::None };
 
         if repo.state() != git2::RepositoryState::Clean {
             return Repo::Pending;
@@ -74,14 +71,11 @@ pub mod short {
             },
         };
 
-        let status = match repo.statuses(Some(
+        let Ok(status) = repo.statuses(Some(
             git2::StatusOptions::new()
                 .include_ignored(false)
                 .include_untracked(true),
-        )) {
-            Ok(status) => status,
-            Err(_) => return Repo::Error,
-        };
+        )) else { return Repo::Error };
 
         if status.iter().next().is_some() {
             Repo::Dirty(sync)
@@ -208,20 +202,11 @@ pub mod long {
             }
         }
 
-        let repo = match git2::Repository::open(path).ok() {
-            Some(repo) => repo,
-            None => return Repo::None,
-        };
+        let Some(repo) = git2::Repository::open(path).ok() else { return Repo::None };
 
-        let changes = match get_changes(&repo) {
-            Some(changes) => changes,
-            None => return Repo::Error,
-        };
+        let Some(changes) = get_changes(&repo) else { return Repo::Error };
 
-        let head = match repo.head() {
-            Ok(head) => head,
-            Err(_) => return Repo::New(changes),
-        };
+        let Ok(head) = repo.head() else { return Repo::New(changes) };
 
         let head = head.shorthand().map_or_else(
             || String::from("??"),

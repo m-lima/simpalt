@@ -44,7 +44,7 @@ fn prompt_inner(
             write!(out, style!(fg = color!(reset), "{host}"), host = host)?;
             should_recolor = false;
         } else {
-            write!(out, "{host}", host = host)?;
+            write!(out, "{host}")?;
         }
         write!(out, style!(reset to bg = color!(black), " "))?;
     }
