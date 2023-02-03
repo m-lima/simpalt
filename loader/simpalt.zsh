@@ -12,7 +12,7 @@ if `command -v simpalt &> /dev/null`; then
 
   __simpalt_build_r_prompt() {
     if (( COLUMNS > 120 )); then
-      simpalt e "$(simpalt r)"
+      simpalt r | simpalt c zsh
     fi
   }
 
@@ -21,7 +21,8 @@ if `command -v simpalt &> /dev/null`; then
     zle reset-prompt
   }
 
-  # Allow toggling
+  # Allow toggling. E.g.:
+  # bindkey '^T' simpalt_toggle_mode
   zle -N simpalt_toggle_mode
 
   # Allow `eval` for the prompt
