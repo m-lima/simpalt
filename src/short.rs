@@ -226,7 +226,7 @@ mod git {
     }
 
     pub fn prompt(path: &std::path::PathBuf) -> Repo {
-        let Ok(repo) = git2::Repository::open(path) else {
+        let Ok(repo) = git2::Repository::discover(path) else {
             return Repo::None;
         };
 

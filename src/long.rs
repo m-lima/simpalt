@@ -346,7 +346,7 @@ mod git {
             }
         }
 
-        let Some(repo) = git2::Repository::open(path).ok() else{
+        let Some(repo) = git2::Repository::discover(path).ok() else{
             return Repo::None;
         };
 
