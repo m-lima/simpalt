@@ -48,7 +48,7 @@ pub mod short {
     }
 
     pub fn prompt(path: &std::path::PathBuf) -> Repo {
-        let Some(repo) = git2::Repository::open(path).ok() else { return Repo::None };
+        let Some(repo) = git2::Repository::discover(path).ok() else { return Repo::None };
 
         if repo.state() != git2::RepositoryState::Clean {
             return Repo::Pending;
@@ -202,7 +202,7 @@ pub mod long {
             }
         }
 
-        let Some(repo) = git2::Repository::open(path).ok() else { return Repo::None };
+        let Some(repo) = git2::Repository::discover(path).ok() else { return Repo::None };
 
         let Some(changes) = get_changes(&repo) else { return Repo::Error };
 
