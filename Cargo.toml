@@ -10,7 +10,7 @@ codegen-units = 1
 
 [dependencies]
 chrono = "0.4.23"
-git2 = "0.15.0"
+git2 = "0.16.1"
 
 [dev-dependencies]
 regex = "1.7.0"
