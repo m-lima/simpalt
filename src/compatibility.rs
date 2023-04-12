@@ -122,6 +122,14 @@ mod tests {
         let output = String::from("abc%{[31m%}def");
         assert_eq!(test(|s| zsh(s, input.as_bytes())), output);
 
+        let input = String::from("abc[31mmdef");
+        let output = String::from("abc%{[31m%}mdef");
+        assert_eq!(test(|s| zsh(s, input.as_bytes())), output);
+
+        let input = String::from("[31mYo[m");
+        let output = String::from("%{[31m}%Yo%{[m}%");
+        assert_eq!(test(|s| zsh(s, input.as_bytes())), output);
+
         let input = String::from("[38;5;2mabc[mdef");
         let output = String::from("%{[38;5;2m%}abc%{[m%}def");
         assert_eq!(test(|s| zsh(s, input.as_bytes())), output);
