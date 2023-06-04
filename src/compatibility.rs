@@ -1,41 +1,50 @@
 use crate::Result;
 
 pub fn zsh(mut output: impl std::io::Write, mut input: impl std::io::Read) -> Result {
+    #[derive(Eq, PartialEq)]
+    enum Escape {
+        Normal,
+        Escaped,
+        MaybeDone,
+    }
+
     let mut buffer = {
         let buffer = std::mem::MaybeUninit::<[u8; 1024]>::uninit();
         unsafe { buffer.assume_init() }
     };
 
     let mut bytes = input.read(&mut buffer)?;
+    let mut escape = Escape::Normal;
     while bytes > 0 {
         let mut cursor = 0;
-        let mut escaped = None;
 
         for (i, byte) in buffer[..bytes].iter().copied().enumerate() {
-            match escaped {
-                Some(true) => {
-                    if byte == b'' {
-                        escaped = Some(false);
-                    } else {
-                        if cursor < i {
-                            output.write_all(&buffer[cursor..i])?;
-                            cursor = i;
-                        }
-                        output.write_all(b"%}")?;
-                        escaped = None;
-                    }
-                }
-                Some(false) => {
-                    escaped = Some(byte == b'm');
-                }
-                None => {
+            match escape {
+                Escape::Normal => {
                     if byte == b'' {
                         if cursor < i {
                             output.write_all(&buffer[cursor..i])?;
                             cursor = i;
                         }
                         output.write_all(b"%{")?;
-                        escaped = Some(false);
+                        escape = Escape::Escaped;
+                    }
+                }
+                Escape::Escaped => {
+                    if byte == b'm' {
+                        escape = Escape::MaybeDone;
+                    }
+                }
+                Escape::MaybeDone => {
+                    if byte == b'' {
+                        escape = Escape::Escaped;
+                    } else {
+                        if cursor < i {
+                            output.write_all(&buffer[cursor..i])?;
+                            cursor = i;
+                        }
+                        output.write_all(b"%}")?;
+                        escape = Escape::Normal;
                     }
                 }
             }
@@ -46,6 +55,10 @@ pub fn zsh(mut output: impl std::io::Write, mut input: impl std::io::Read) -> Re
         }
 
         bytes = input.read(&mut buffer)?;
+    }
+
+    if escape != Escape::Normal {
+        output.write_all(b"%}")?;
     }
 
     Ok(())
@@ -127,7 +140,7 @@ mod tests {
         assert_eq!(test(|s| zsh(s, input.as_bytes())), output);
 
         let input = String::from("[31mYo[m");
-        let output = String::from("%{[31m}%Yo%{[m}%");
+        let output = String::from("%{[31m%}Yo%{[m%}");
         assert_eq!(test(|s| zsh(s, input.as_bytes())), output);
 
         let input = String::from("[38;5;2mabc[mdef");
