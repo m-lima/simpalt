@@ -1,6 +1,6 @@
 [package]
 name = "simpalt"
-version = "0.2.0"
+version = "0.3.1"
 edition = "2021"
 
 [profile.release]
@@ -9,8 +9,8 @@ lto = true
 codegen-units = 1
 
 [dependencies]
-chrono = "0.4.23"
-git2 = "0.16.1"
+chrono = "0.4.26"
+git2 = "0.17.2"
 
 [dev-dependencies]
-regex = "1.7.0"
+regex = "1.8.3"
