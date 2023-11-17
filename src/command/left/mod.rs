@@ -41,8 +41,8 @@ where
     Out: std::io::Write,
 {
     if long {
-        short::render(out, host, error, jobs)
-    } else {
         long::render(out, host, error, jobs)
+    } else {
+        short::render(out, host, error, jobs)
     }
 }
