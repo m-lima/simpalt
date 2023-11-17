@@ -61,11 +61,22 @@ macro_rules! color {
     };
 }
 
-pub fn render(out: impl std::io::Write, pwd: String) -> Result {
-    render_git(out, git::prompt(&std::path::PathBuf::from(pwd)))
+#[derive(Debug, Eq, PartialEq)]
+pub struct Args {
+    pub pwd: String,
 }
 
-fn render_git(mut out: impl std::io::Write, repo: git::Repo) -> Result {
+pub fn render<Out>(out: Out, args: Args) -> Result
+where
+    Out: std::io::Write,
+{
+    render_git(out, git::parse(&std::path::PathBuf::from(args.pwd)))
+}
+
+fn render_git<Out>(mut out: Out, repo: git::Repo) -> Result
+where
+    Out: std::io::Write,
+{
     match repo {
         git::Repo::None | git::Repo::Error => Ok(()),
         git::Repo::Regular(head, sync, changes) => {
@@ -111,7 +122,10 @@ fn render_git(mut out: impl std::io::Write, repo: git::Repo) -> Result {
     }
 }
 
-fn render_changes(out: &mut impl std::io::Write, changes: git::Changes) -> Result<bool> {
+fn render_changes<Out>(out: &mut Out, changes: git::Changes) -> Result<bool>
+where
+    Out: std::io::Write,
+{
     let mut changed_bg = false;
     if changes.added > 0 {
         write!(out, style!(fg = color!(dark gray), symbol!(slant)))?;
@@ -188,8 +202,14 @@ fn render_changes(out: &mut impl std::io::Write, changes: git::Changes) -> Resul
     Ok(changed_bg)
 }
 
-fn render_sync(out: &mut impl std::io::Write, sync: git::Sync, changed_bg: bool) -> Result {
-    fn add_slant(out: &mut impl std::io::Write, changed_bg: bool) -> Result {
+fn render_sync<Out>(out: &mut Out, sync: git::Sync, changed_bg: bool) -> Result
+where
+    Out: std::io::Write,
+{
+    fn add_slant<Out>(out: &mut Out, changed_bg: bool) -> Result
+    where
+        Out: std::io::Write,
+    {
         if changed_bg {
             write!(
                 out,

@@ -10,17 +10,24 @@ macro_rules! chevron {
     };
 }
 
-pub fn prompt(out: impl std::io::Write, host: Option<String>, error: bool, jobs: bool) -> Result {
-    prompt_inner(out, host, error, jobs, &SysEnv)
+pub fn render<Out>(out: Out, host: Option<String>, error: bool, jobs: bool) -> Result
+where
+    Out: std::io::Write,
+{
+    render_inner(out, host, error, jobs, &SysEnv)
 }
 
-fn prompt_inner(
-    mut out: impl std::io::Write,
+fn render_inner<Out, Env>(
+    mut out: Out,
     host: Option<String>,
     error: bool,
     jobs: bool,
-    enver: &impl EnvFetcher,
-) -> Result {
+    enver: &Env,
+) -> Result
+where
+    Out: std::io::Write,
+    Env: EnvFetcher,
+{
     write!(out, style!(reset to bg = color!(black), " "))?;
     let mut should_recolor = false;
 
@@ -64,7 +71,7 @@ fn prompt_inner(
     }
 
     if let Some(ref pwd) = pwd {
-        out.git(git::prompt(pwd))?;
+        out.git(git::parse(pwd))?;
     } else {
         write!(out, chevron!(color!(blue)))?;
     }
@@ -164,12 +171,12 @@ struct SysEnv;
 impl EnvFetcher for SysEnv {
     fn pwd(&self) -> Option<std::path::PathBuf> {
         std::env::current_dir()
-            .or_else(|_| std::env::var("PWD").map(std::path::PathBuf::from))
             .ok()
+            .or_else(|| std::env::var_os("PWD").map(std::path::PathBuf::from))
     }
 
     fn home(&self) -> Option<std::path::PathBuf> {
-        std::env::var("HOME").map(std::path::PathBuf::from).ok()
+        std::env::var_os("HOME").map(std::path::PathBuf::from)
     }
 
     fn venv(&self) -> bool {
@@ -179,7 +186,7 @@ impl EnvFetcher for SysEnv {
 
 #[cfg(test)]
 mod tests {
-    use super::{git, prompt_inner, EnvFetcher, Writer};
+    use super::*;
     use crate::test;
 
     macro_rules! branch {
@@ -214,7 +221,7 @@ mod tests {
 
     #[test]
     fn all_empty() {
-        let result = test(|s| prompt_inner(s, None, false, false, &MockEnv::default()));
+        let result = test(|s| render_inner(s, None, false, false, &MockEnv::default()));
         assert_eq!(
             result,
             concat!(
@@ -233,7 +240,7 @@ mod tests {
     #[test]
     fn just_pwd() {
         let result = test(|s| {
-            prompt_inner(
+            render_inner(
                 s,
                 None,
                 true,
@@ -269,7 +276,7 @@ mod tests {
     #[test]
     fn last_path() {
         let result = test(|s| {
-            prompt_inner(
+            render_inner(
                 s,
                 None,
                 true,
@@ -304,7 +311,7 @@ mod tests {
     #[test]
     fn home_match() {
         let result = test(|s| {
-            prompt_inner(
+            render_inner(
                 s,
                 None,
                 false,
@@ -335,7 +342,7 @@ mod tests {
     #[test]
     fn all_tags() {
         let result = test(|s| {
-            prompt_inner(
+            render_inner(
                 s,
                 Some(String::from("[31mH")),
                 true,

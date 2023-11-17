@@ -1,18 +1,18 @@
 if `command -v simpalt &> /dev/null`; then
-  if [[ "`simpalt v`" != "0.3.1" ]]; then
-    echo '[33mPrompt info:[m Expected version [37m0.3.1[m but `simpalt` is reporting version [37m'`simpalt v`'[m'
+  if [[ "`simpalt v`" != "0.3.2" ]]; then
+    echo '[33mPrompt info:[m Expected version [37m0.3.2[m but `simpalt` is reporting version [37m'`simpalt v`'[m'
     echo 'Check [34mhttps://github.com/m-lima/simpalt-rs/releases[m for the latest version'
   fi
 
   __simpalt_build_prompt() {
     (( ? > 0 )) && error='-e'
     [ "$(jobs)" ] && jobs='-j'
-    simpalt l $SIMPALT_MODE $COMPUTER_SYMBOL $error $jobs | simpalt c zsh
+    simpalt l -z $SIMPALT_MODE $COMPUTER_SYMBOL $error $jobs
   }
 
   __simpalt_build_r_prompt() {
     if (( COLUMNS > 120 )); then
-      simpalt r | simpalt c zsh
+      simpalt r -z
     fi
   }
 

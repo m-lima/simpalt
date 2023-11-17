@@ -1,17 +1,24 @@
 use crate::git::long as git;
 use crate::Result;
 
-pub fn prompt(out: impl std::io::Write, host: Option<String>, error: bool, jobs: bool) -> Result {
-    prompt_inner(out, host, error, jobs, &SysEnv)
+pub fn render<Out>(out: Out, host: Option<String>, error: bool, jobs: bool) -> Result
+where
+    Out: std::io::Write,
+{
+    render_inner(out, host, error, jobs, &SysEnv)
 }
 
-fn prompt_inner(
-    mut out: impl std::io::Write,
+fn render_inner<Out, Env>(
+    mut out: Out,
     host: Option<String>,
     error: bool,
     jobs: bool,
-    enver: &impl EnvFetcher,
-) -> Result {
+    enver: &Env,
+) -> Result
+where
+    Out: std::io::Write,
+    Env: EnvFetcher,
+{
     let mut last = None;
 
     if error {
@@ -53,7 +60,7 @@ fn prompt_inner(
     }
 
     if let Some(ref pwd) = pwd {
-        match git::prompt(pwd) {
+        match git::parse(pwd) {
             git::Repo::None => {}
             git::Repo::Error => {
                 out.div(&mut last, color!(red), color!(black))?;
@@ -217,8 +224,8 @@ struct SysEnv;
 impl EnvFetcher for SysEnv {
     fn pwd(&self) -> Option<std::path::PathBuf> {
         std::env::current_dir()
-            .or_else(|_| std::env::var("PWD").map(std::path::PathBuf::from))
             .ok()
+            .or_else(|| std::env::var_os("PWD").map(std::path::PathBuf::from))
     }
 
     fn home(&self) -> Option<String> {
@@ -232,7 +239,7 @@ impl EnvFetcher for SysEnv {
 
 #[cfg(test)]
 mod tests {
-    use super::{prompt_inner, EnvFetcher};
+    use super::*;
     use crate::test;
 
     #[derive(Default)]
@@ -258,7 +265,7 @@ mod tests {
 
     #[test]
     fn all_empty() {
-        let result = test(|s| prompt_inner(s, None, false, false, &MockEnv::default()));
+        let result = test(|s| render_inner(s, None, false, false, &MockEnv::default()));
         assert_eq!(
             result,
             concat!(
@@ -280,7 +287,7 @@ mod tests {
     #[test]
     fn just_pwd() {
         let result = test(|s| {
-            prompt_inner(
+            render_inner(
                 s,
                 None,
                 false,
@@ -310,7 +317,7 @@ mod tests {
     #[test]
     fn home_match() {
         let result = test(|s| {
-            prompt_inner(
+            render_inner(
                 s,
                 None,
                 false,
@@ -341,7 +348,7 @@ mod tests {
     #[test]
     fn all_tags() {
         let result = test(|s| {
-            prompt_inner(
+            render_inner(
                 s,
                 Some(String::from("[31mH")),
                 true,

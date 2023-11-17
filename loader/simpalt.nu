@@ -35,7 +35,7 @@ export-env {
         if $nu.os-info.family == 'unix' {
           simpalt l $args
         } else {
-          simpalt l $args | simpalt c win '8;5;236'
+          simpalt l ('-w8;5;236') $args
         }
       }
       PROMPT_COMMAND_RIGHT: { simpalt r }

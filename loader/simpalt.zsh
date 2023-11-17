@@ -7,12 +7,12 @@ if `command -v simpalt &> /dev/null`; then
   __simpalt_build_prompt() {
     (( ? > 0 )) && error='-e'
     [ "$(jobs)" ] && jobs='-j'
-    simpalt l $SIMPALT_MODE $COMPUTER_SYMBOL $error $jobs | simpalt c zsh
+    simpalt l -z $SIMPALT_MODE $COMPUTER_SYMBOL $error $jobs
   }
 
   __simpalt_build_r_prompt() {
     if (( COLUMNS > 120 )); then
-      simpalt r | simpalt c zsh
+      simpalt r -z
     fi
   }
 

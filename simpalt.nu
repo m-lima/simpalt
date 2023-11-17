@@ -5,8 +5,8 @@ export-env {
     {}
   } else {
     let simpalt_version = (simpalt v | str trim)
-    if $simpalt_version != "0.3.1" {
-      print $'(ansi yellow)Prompt info:(ansi reset) Expected version (ansi white)0.3.1(ansi reset) but `simpalt` is reporting version (ansi white)'($simpalt_version)'(ansi reset)'
+    if $simpalt_version != "0.3.2" {
+      print $'(ansi yellow)Prompt info:(ansi reset) Expected version (ansi white)0.3.2(ansi reset) but `simpalt` is reporting version (ansi white)'($simpalt_version)'(ansi reset)'
       print $'Check (ansi blue)https://github.com/m-lima/simpalt-rs/releases(ansi reset) for the latest version'
     }
 
@@ -35,7 +35,7 @@ export-env {
         if $nu.os-info.family == 'unix' {
           simpalt l $args
         } else {
-          simpalt l $args | simpalt c win '8;5;236'
+          simpalt l ('-w8;5;236') $args
         }
       }
       PROMPT_COMMAND_RIGHT: { simpalt r }
