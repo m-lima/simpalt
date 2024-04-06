@@ -5,12 +5,12 @@ export-env {
     {}
   } else {
     let simpalt_version = (simpalt v | str trim)
-    if $simpalt_version != "0.3.2" {
-      print $'(ansi yellow)Prompt info:(ansi reset) Expected version (ansi white)0.3.2(ansi reset) but `simpalt` is reporting version (ansi white)'($simpalt_version)'(ansi reset)'
+    if $simpalt_version != "0.3.3" {
+      print $'(ansi yellow)Prompt info:(ansi reset) Expected version (ansi white)0.3.3(ansi reset) but `simpalt` is reporting version (ansi white)'($simpalt_version)'(ansi reset)'
       print $'Check (ansi blue)https://github.com/m-lima/simpalt-rs/releases(ansi reset) for the latest version'
     }
 
-    let simpalt_host = if 'SIMPALT_HOST' in (env).name {
+    let simpalt_host = if 'SIMPALT_HOST' in $env {
       $env.SIMPALT_HOST
     } else {
       ''
@@ -64,6 +64,6 @@ export def-env toggle_simpalt [] {
   #     cmd: 'toggle_simpalt'
   #   }
   # }
-  let-env SIMPALT_LONG = (not $env.SIMPALT_LONG)
+  $env.SIMPALT_LONG = (not $env.SIMPALT_LONG)
   print -n ((ansi -e 'F') + (ansi -e 'J'))
 }

@@ -70,7 +70,7 @@ macro_rules! symbol {
         ""
     };
     (python) => {
-        "" // " "
+        "󰌠"
     };
     (new) => {
         ""
@@ -97,22 +97,22 @@ macro_rules! symbol {
         ""
     };
     (mailbox) => {
-        ""
+        ""
     };
     (ahead) => {
-        ""
+        "󰁝"
     };
     (behind) => {
-        ""
+        "󰁅"
     };
     (local) => {
-        ""
+        "󰁂"
     };
     (gone) => {
-        ""
+        "󰁜"
     };
     (warn) => {
-        ""
+        "󱈸"
     };
     (div) => {
         ""

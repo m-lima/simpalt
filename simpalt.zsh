@@ -1,6 +1,6 @@
 if `command -v simpalt &> /dev/null`; then
-  if [[ "`simpalt v`" != "0.3.2" ]]; then
-    echo '[33mPrompt info:[m Expected version [37m0.3.2[m but `simpalt` is reporting version [37m'`simpalt v`'[m'
+  if [[ "`simpalt v`" != "0.3.3" ]]; then
+    echo '[33mPrompt info:[m Expected version [37m0.3.3[m but `simpalt` is reporting version [37m'`simpalt v`'[m'
     echo 'Check [34mhttps://github.com/m-lima/simpalt-rs/releases[m for the latest version'
   fi
 
