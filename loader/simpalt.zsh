@@ -5,9 +5,10 @@ if `command -v simpalt &> /dev/null`; then
   fi
 
   __simpalt_build_prompt() {
-    (( ? > 0 )) && error='-e'
-    [ "$(jobs)" ] && jobs='-j'
-    simpalt l -z $SIMPALT_MODE $COMPUTER_SYMBOL $error $jobs
+    local has_error has_jobs
+    (( ? > 0 )) && has_error='-e'
+    [ "$(jobs)" ] && has_jobs='-j'
+    simpalt l -z $SIMPALT_MODE $COMPUTER_SYMBOL $has_error $has_jobs
   }
 
   __simpalt_build_r_prompt() {
