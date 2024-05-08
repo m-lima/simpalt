@@ -4,19 +4,6 @@ if `command -v simpalt &> /dev/null`; then
     echo 'Check [34mhttps://github.com/m-lima/simpalt-rs/releases[m for the latest version'
   fi
 
-  __simpalt_build_prompt() {
-    local has_error has_jobs
-    (( ? > 0 )) && has_error='-e'
-    [ "$(jobs)" ] && has_jobs='-j'
-    simpalt l -z $SIMPALT_MODE $COMPUTER_SYMBOL $has_error $has_jobs
-  }
-
-  __simpalt_build_r_prompt() {
-    if (( COLUMNS > 120 )); then
-      simpalt r -z
-    fi
-  }
-
   simpalt_toggle_mode() {
     [ "$SIMPALT_MODE" ] && unset SIMPALT_MODE || SIMPALT_MODE='-l'
     zle reset-prompt
@@ -26,10 +13,17 @@ if `command -v simpalt &> /dev/null`; then
   # bindkey '^T' simpalt_toggle_mode
   zle -N simpalt_toggle_mode
 
-  # Allow `eval` for the prompt
-  setopt promptsubst
-  PROMPT='$(__simpalt_build_prompt)'
-  RPROMPT='$(__simpalt_build_r_prompt)'
+  precmd() {
+    if (( ? != 0 )) && local has_error='-e'
+    [ "$(jobs)" ] && local has_jobs='-j'
+    PROMPT="$(simpalt l -z $SIMPALT_MODE $COMPUTER_SYMBOL $has_error $has_jobs)"
+
+    if (( COLUMNS > 120 )); then
+      RPROMPT="$(simpalt r -z)"
+    else
+      RPROMPT=""
+    fi
+  }
 
   # Avoid penv from setting the PROMPT
   VIRTUAL_ENV_DISABLE_PROMPT=1
