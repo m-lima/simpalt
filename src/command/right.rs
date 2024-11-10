@@ -43,7 +43,8 @@ mod tests {
     fn right() {
         let result = test(|s| render_inner(s));
 
-        let regex = regex::Regex::new("^\\[38;5;23m[0-2][0-9]:[0-5][0-9]:[0-5][0-9]\\[m$").unwrap();
+        let regex =
+            regex::Regex::new("^\\[38;5;23m[0-2][0-9]:[0-5][0-9]:[0-5][0-9]\\[m$").unwrap();
         assert!(regex.is_match(&result));
     }
 }
