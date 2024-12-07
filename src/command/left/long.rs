@@ -24,7 +24,7 @@ where
     if error {
         out.div(&mut last, color!(black), color!(red))?;
         write!(out, symbol!(error))?;
-    };
+    }
 
     if jobs {
         out.div(&mut last, color!(black), color!(cyan))?;
@@ -35,7 +35,7 @@ where
         out.div(&mut last, color!(black), color!(reset))?;
         write!(out, "{host}")?;
         write!(out, style!(reset to bg = color!(black)))?;
-    };
+    }
 
     if let Some(venv) = enver.venv() {
         out.div(&mut last, color!(cyan), color!(black))?;
@@ -44,7 +44,16 @@ where
         } else {
             write!(out, "{venv}")?;
         }
-    };
+    }
+
+    if let Some(direnv) = enver.direnv() {
+        out.div(&mut last, color!(magenta), color!(black))?;
+        if let Some(direnv) = direnv.rsplit(std::path::MAIN_SEPARATOR).next() {
+            write!(out, "{direnv}")?;
+        } else {
+            write!(out, "{direnv}")?;
+        }
+    }
 
     let pwd = enver.pwd();
 
@@ -109,7 +118,7 @@ where
                 write!(out, symbol!(new))?;
             }
         }
-    };
+    }
     out.div(&mut last, color!(reset), color!(reset))?;
     out.flush()
 }
@@ -216,6 +225,7 @@ trait EnvFetcher {
     fn pwd(&self) -> Option<std::path::PathBuf>;
     fn home(&self) -> Option<String>;
     fn venv(&self) -> Option<String>;
+    fn direnv(&self) -> Option<String>;
 }
 
 #[derive(Copy, Clone)]
@@ -235,6 +245,10 @@ impl EnvFetcher for SysEnv {
     fn venv(&self) -> Option<String> {
         std::env::var("VIRTUAL_ENV").ok()
     }
+
+    fn direnv(&self) -> Option<String> {
+        std::env::var("DIRENV_DIR").ok()
+    }
 }
 
 #[cfg(test)]
@@ -247,6 +261,7 @@ mod tests {
         pwd: Option<std::path::PathBuf>,
         home: Option<String>,
         venv: Option<String>,
+        direnv: Option<String>,
     }
 
     impl EnvFetcher for MockEnv {
@@ -260,6 +275,10 @@ mod tests {
 
         fn venv(&self) -> Option<String> {
             self.venv.clone()
+        }
+
+        fn direnv(&self) -> Option<String> {
+            self.direnv.clone()
         }
     }
 
@@ -357,6 +376,7 @@ mod tests {
                     pwd: Some(std::path::PathBuf::from("/some/home/path/further/on")),
                     home: Some(String::from("/some/home/path")),
                     venv: Some(String::from("py")),
+                    direnv: Some(String::from("/some/direnv")),
                 },
             )
         });
@@ -375,7 +395,51 @@ mod tests {
                 style!(fg = color!(black), bg = color!(cyan), symbol!(div)),
                 style!(fg = color!(black)),
                 " py ",
-                style!(fg = color!(cyan), bg = color!(blue), symbol!(div)),
+                style!(fg = color!(cyan), bg = color!(magenta), symbol!(div)),
+                style!(fg = color!(black)),
+                " direnv ",
+                style!(fg = color!(magenta), bg = color!(blue), symbol!(div)),
+                style!(fg = color!(black)),
+                " ~/further/on ",
+                style!(fg = color!(blue), bg = color!(reset), symbol!(div)),
+                style!(fg = color!(reset)),
+                " "
+            )
+        );
+    }
+
+    #[test]
+    fn direnv() {
+        let result = test(|s| {
+            render_inner(
+                s,
+                Some(String::from("[31mH")),
+                true,
+                true,
+                &MockEnv {
+                    pwd: Some(std::path::PathBuf::from("/some/home/path/further/on")),
+                    home: Some(String::from("/some/home/path")),
+                    venv: None,
+                    direnv: Some(String::from("/some/direnv")),
+                },
+            )
+        });
+        assert_eq!(
+            result,
+            concat!(
+                style!(fg = color!(red), bg = color!(black)),
+                " ",
+                symbol!(error),
+                " ",
+                style!(fg = color!(cyan), symbol!(jobs)),
+                " ",
+                style!(fg = color!(reset), style!(fg = color!(red), "H")),
+                style!(reset to bg = color!(black)),
+                " ",
+                style!(fg = color!(black), bg = color!(magenta), symbol!(div)),
+                style!(fg = color!(black)),
+                " direnv ",
+                style!(fg = color!(magenta), bg = color!(blue), symbol!(div)),
                 style!(fg = color!(black)),
                 " ~/further/on ",
                 style!(fg = color!(blue), bg = color!(reset), symbol!(div)),

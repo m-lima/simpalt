@@ -5,8 +5,8 @@ export-env {
     {}
   } else {
     let simpalt_version = (simpalt v | str trim)
-    if $simpalt_version != "0.3.4" {
-      print $'(ansi yellow)Prompt info:(ansi reset) Expected version (ansi white)0.3.4(ansi reset) but `simpalt` is reporting version (ansi white)'($simpalt_version)'(ansi reset)'
+    if $simpalt_version != "0.3.5" {
+      print $'(ansi yellow)Prompt info:(ansi reset) Expected version (ansi white)0.3.5(ansi reset) but `simpalt` is reporting version (ansi white)'($simpalt_version)'(ansi reset)'
       print $'Check (ansi blue)https://github.com/m-lima/simpalt-rs/releases(ansi reset) for the latest version'
     }
 

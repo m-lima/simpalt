@@ -69,6 +69,9 @@ macro_rules! symbol {
     (jobs) => {
         ""
     };
+    (direnv) => {
+        ""
+    };
     (python) => {
         "󰌠"
     };

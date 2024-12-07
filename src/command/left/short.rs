@@ -46,6 +46,11 @@ where
         should_recolor = true;
     }
 
+    if enver.direnv() {
+        write!(out, style!(fg = color!(blue), symbol!(direnv), " "))?;
+        should_recolor = true;
+    }
+
     if let Some(host) = host {
         if should_recolor {
             write!(out, style!(fg = color!(reset), "{host}"), host = host)?;
@@ -163,6 +168,7 @@ trait EnvFetcher {
     fn pwd(&self) -> Option<std::path::PathBuf>;
     fn home(&self) -> Option<std::path::PathBuf>;
     fn venv(&self) -> bool;
+    fn direnv(&self) -> bool;
 }
 
 #[derive(Copy, Clone)]
@@ -181,6 +187,10 @@ impl EnvFetcher for SysEnv {
 
     fn venv(&self) -> bool {
         std::env::var("VIRTUAL_ENV").is_ok()
+    }
+
+    fn direnv(&self) -> bool {
+        std::env::var("DIRENV_DIR").is_ok()
     }
 }
 
@@ -203,6 +213,7 @@ mod tests {
         pwd: Option<std::path::PathBuf>,
         home: Option<std::path::PathBuf>,
         venv: bool,
+        direnv: bool,
     }
 
     impl EnvFetcher for MockEnv {
@@ -216,6 +227,10 @@ mod tests {
 
         fn venv(&self) -> bool {
             self.venv
+        }
+
+        fn direnv(&self) -> bool {
+            self.direnv
         }
     }
 
@@ -351,6 +366,7 @@ mod tests {
                     pwd: Some(std::path::PathBuf::from("/some/home/path/")),
                     home: Some(std::path::PathBuf::from("/some/home/path")),
                     venv: true,
+                    direnv: true,
                 },
             )
         });
@@ -364,6 +380,48 @@ mod tests {
                 style!(fg = color!(cyan), symbol!(jobs)),
                 " ",
                 style!(fg = color!(green), symbol!(python)),
+                " ",
+                style!(fg = color!(blue), symbol!(direnv)),
+                " ",
+                style!(fg = color!(reset)),
+                style!(fg = color!(red), "H"),
+                style!(reset to bg = color!(black)),
+                " ",
+                "~",
+                " ",
+                chevron!(color!(blue)),
+                style!(reset),
+                " "
+            )
+        );
+    }
+
+    #[test]
+    fn direnv() {
+        let result = test(|s| {
+            render_inner(
+                s,
+                Some(String::from("[31mH")),
+                true,
+                true,
+                &MockEnv {
+                    pwd: Some(std::path::PathBuf::from("/some/home/path/")),
+                    home: Some(std::path::PathBuf::from("/some/home/path")),
+                    venv: false,
+                    direnv: true,
+                },
+            )
+        });
+        assert_eq!(
+            result,
+            concat!(
+                style!(reset to bg = color!(black)),
+                " ",
+                style!(fg = color!(red), symbol!(error)),
+                " ",
+                style!(fg = color!(cyan), symbol!(jobs)),
+                " ",
+                style!(fg = color!(blue), symbol!(direnv)),
                 " ",
                 style!(fg = color!(reset)),
                 style!(fg = color!(red), "H"),
