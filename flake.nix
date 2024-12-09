@@ -23,7 +23,8 @@
           src = craneLib.cleanCargoSource ./.;
           strictDeps = true;
 
-          buildInputs = with pkgs; lib.optionals stdenv.isDarwin [ libiconv ];
+          nativeBuildInputs = with pkgs; [ pkg-config ];
+          buildInputs = with pkgs; [ openssl ] ++ lib.optionals stdenv.isDarwin [ libiconv ];
 
           CARGO_BUILD_RUSTFLAGS = "-C target-cpu=native -C prefer-dynamic=no";
         };
@@ -33,14 +34,17 @@
         simpalt = craneLib.buildPackage (commonArgs // { inherit cargoArtifacts; });
 
         hack =
-          cargoHackArgs:
+          {
+            args,
+            tools ? [ ],
+          }:
           craneLib.mkCargoDerivation (
             commonArgs
             // {
               inherit cargoArtifacts;
               pnameSuffix = "-hack";
-              buildPhaseCargoCommand = "cargo hack --feature-powerset --workspace ${cargoHackArgs}";
-              nativeBuildInputs = (commonArgs.nativeBuildInputs or [ ]) ++ [ pkgs.cargo-hack ];
+              buildPhaseCargoCommand = "cargo hack --feature-powerset --workspace ${args}";
+              nativeBuildInputs = (commonArgs.nativeBuildInputs or [ ]) ++ [ pkgs.cargo-hack ] ++ tools;
             }
           );
       in
@@ -48,71 +52,85 @@
         checks = {
           inherit simpalt;
 
-          hackCheck = hack "check";
-          hackCheckTests = hack "check --tests";
-          hackCheckExamples = hack "check --examples";
-          hackClippy = hack "clippy";
-          hackClippyTests = hack "clippy --tests";
-          hackClippyExamples = hack "clippy --examples";
-          hackTest = hack "test";
+          hackCheck = hack {
+            args = "check";
+          };
+          hackCheckTests = hack {
+            args = "check --tests";
+          };
+          hackCheckExamples = hack {
+            args = "check --examples";
+          };
+          hackClippy = hack {
+            args = "clippy";
+            tools = [ pkgs.clippy ];
+          };
+          hackClippyTests = hack {
+            args = "clippy --tests";
+            tools = [ pkgs.clippy ];
+          };
+          hackClippyExamples = hack {
+            args = "clippy --examples";
+            tools = [ pkgs.clippy ];
+          };
+          hackTest = hack {
+            args = "test";
+          };
         };
 
-        packages = {
-          default = simpalt;
-          zsh =
-            {
-              symbol,
-              toggleBinding ? null,
-            }:
-            ''
-              __simpalt_build_prompt() {
-                (( ? != 0 )) && local has_error='-e'
-                [ "''${jobstates}" ] && local has_jobs='-j'
-            ''
-            + (
-              if toggleBinding == null then
-                ''
-                  simpalt l -z '${symbol}' $has_error $has_jobs
-                ''
-              else
-                ''
-                  simpalt l -z $SIMPALT_MODE '${symbol}' $has_error $has_jobs
-                ''
-            )
-            + ''
-              }
+        packages.default = simpalt;
 
-              __simpalt_build_r_prompt() {
-                if (( COLUMNS > 120 )); then
-                  simpalt r -z
-                fi
-              }
-            ''
-            + (
-              pkgs.lib.optionalString (toggleBinding != null) ''
-                simpalt_toggle_mode() {
-                  [ "$SIMPALT_MODE" ] && unset SIMPALT_MODE || SIMPALT_MODE='-l'
-                  zle reset-prompt
-                }
-
-                # Allow toggling. E.g.:
-                # bindkey '${toggleBinding}' simpalt_toggle_mode
-                zle -N simpalt_toggle_mode
-
-                # Simpalt toggle
-                bindkey '${toggleBinding}' simpalt_toggle_mode
+        integrations.zsh =
+          {
+            symbol,
+            toggleBinding ? null,
+          }:
+          ''
+            __simpalt_build_prompt() {
+              (( ? != 0 )) && local has_error='-e'
+              [ "''${jobstates}" ] && local has_jobs='-j'
+          ''
+          + (
+            if toggleBinding == null then
               ''
-            )
-            + ''
-              # Allow `eval` for the prompt
-              setopt promptsubst
-              PROMPT='$(__simpalt_build_prompt)'
-              RPROMPT='$(__simpalt_build_r_prompt)'
+                simpalt l -z '${symbol}' $has_error $has_jobs
+              ''
+            else
+              ''
+                simpalt l -z $SIMPALT_MODE '${symbol}' $has_error $has_jobs
+              ''
+          )
+          + ''
+            }
 
-              # Avoid penv from setting the PROMPT
-              VIRTUAL_ENV_DISABLE_PROMPT=1
-            '';
-        };
+            __simpalt_build_r_prompt() {
+              if (( COLUMNS > 120 )); then
+                simpalt r -z
+              fi
+            }
+          ''
+          + (pkgs.lib.optionalString (toggleBinding != null) ''
+            simpalt_toggle_mode() {
+              [ "$SIMPALT_MODE" ] && unset SIMPALT_MODE || SIMPALT_MODE='-l'
+              zle reset-prompt
+            }
+
+            # Allow toggling. E.g.:
+            # bindkey '${toggleBinding}' simpalt_toggle_mode
+            zle -N simpalt_toggle_mode
+
+            # Simpalt toggle
+            bindkey '${toggleBinding}' simpalt_toggle_mode
+          '')
+          + ''
+            # Allow `eval` for the prompt
+            setopt promptsubst
+            PROMPT='$(__simpalt_build_prompt)'
+            RPROMPT='$(__simpalt_build_r_prompt)'
+
+            # Avoid penv from setting the PROMPT
+            VIRTUAL_ENV_DISABLE_PROMPT=1
+          '';
 
         apps.default = flake-utils.lib.mkApp {
           drv = simpalt;
