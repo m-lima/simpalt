@@ -38,10 +38,15 @@ jobs:
       - name: Check integrations
         if: env.CHECK_INTEGRATIONS
         run: |
-          VERSION=`cargo metadata | jq -r '.packages[] | select(.name == "${{ env.CRATE_NAME }}") | .version'`
+          VERSION=$(cargo metadata | jq -r '.packages[] | select(.name == "${{ env.CRATE_NAME }}") | .version')
           ZSH=$(sed 's/%%VERSION%%/'"${VERSION}"'/g' ./loader/simpalt.zsh)
           NU=$(sed 's/%%VERSION%%/'"${VERSION}"'/g' ./loader/simpalt.nu)
-          [ "${version}" ] && diff ./simpalt.zsh <(echo "${ZSH}") && diff ./simpalt.nu <(echo "${NU}")
+          echo Checking version presence
+          [ -n "${VERSION}" ]
+          echo Checking ZSH integration
+          diff ./simpalt.zsh <(echo "${ZSH}")
+          echo Checking NU integration
+          diff ./simpalt.nu <(echo "${NU}")
       - name: Check main
         run: cargo hack --feature-powerset check --verbose --workspace
       - name: Check tests
