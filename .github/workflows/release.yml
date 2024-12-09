@@ -60,11 +60,41 @@ jobs:
       - name: Lint examples
         run: cargo hack --feature-powerset clippy --verbose --workspace --examples -- -W clippy::pedantic
       - name: Test
-        run: cargo hack test --verbose --workspace --no-fail-fast
+        run: cargo hack --feature-powerset test --verbose --workspace --no-fail-fast
+
+  build:
+    name: Build
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os:
+          - ubuntu-latest
+          - macOS-latest
+          - windows-latest
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+    - name: Build
+      run: cargo build --release --verbose
+    - name: Upload asset (UNIX)
+      if: matrix.os != 'windows-latest'
+      uses: actions/upload-artifact@v3
+      with:
+        name: ${{ matrix.os }}
+        path: ${{ github.workspace }}/target/release/simpalt
+    - name: Upload asset (WINDOWS)
+      if: matrix.os == 'windows-latest'
+      uses: actions/upload-artifact@v3
+      with:
+        name: ${{ matrix.os }}
+        path: ${{ github.workspace }}/target/release/simpalt.exe
 
   release:
     name: Release
-    needs: [version, check]
+    needs:
+      - version
+      - check
+      - build
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
