@@ -80,7 +80,7 @@
 
         packages.default = simpalt;
 
-        integrations.zsh =
+        lib.zsh =
           {
             symbol,
             toggleBinding ? null,
