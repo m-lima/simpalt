@@ -1,15 +1,12 @@
 name: Release
-
 on:
   push:
     tags:
       - v*
-
 env:
   CRATE_NAME: simpalt
   CHECK_INTEGRATIONS: true
   RUSTFLAGS: "-Dwarnings"
-
 jobs:
   version:
     name: Version
@@ -22,7 +19,6 @@ jobs:
           version=`cargo metadata | jq -r '.packages[] | select(.name == "${{ env.CRATE_NAME }}") | .version'`
           version=v"${version}"
           [ "${version}" ] && [ "${version}" == "${{ github.ref_name }}" ]
-
   check:
     name: Check
     runs-on: ubuntu-latest
@@ -61,7 +57,6 @@ jobs:
         run: cargo hack --feature-powerset clippy --verbose --workspace --examples -- -W clippy::pedantic
       - name: Test
         run: cargo hack --feature-powerset test --verbose --workspace --no-fail-fast
-
   build:
     name: Build
     runs-on: ${{ matrix.os }}
@@ -72,23 +67,22 @@ jobs:
           - macOS-latest
           - windows-latest
     steps:
-    - name: Checkout
-      uses: actions/checkout@v4
-    - name: Build
-      run: cargo build --release --verbose
-    - name: Upload asset (UNIX)
-      if: matrix.os != 'windows-latest'
-      uses: actions/upload-artifact@v3
-      with:
-        name: ${{ matrix.os }}
-        path: ${{ github.workspace }}/target/release/simpalt
-    - name: Upload asset (WINDOWS)
-      if: matrix.os == 'windows-latest'
-      uses: actions/upload-artifact@v3
-      with:
-        name: ${{ matrix.os }}
-        path: ${{ github.workspace }}/target/release/simpalt.exe
-
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Build
+        run: cargo build --release --verbose
+      - name: Upload asset (UNIX)
+        if: matrix.os != 'windows-latest'
+        uses: actions/upload-artifact@v3
+        with:
+          name: ${{ matrix.os }}
+          path: ${{ github.workspace }}/target/release/simpalt
+      - name: Upload asset (WINDOWS)
+        if: matrix.os == 'windows-latest'
+        uses: actions/upload-artifact@v3
+        with:
+          name: ${{ matrix.os }}
+          path: ${{ github.workspace }}/target/release/simpalt.exe
   release:
     name: Release
     needs:

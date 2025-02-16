@@ -1,17 +1,14 @@
 name: Check
-
 on:
   push:
     branches:
       - "**"
     tags-ignore:
       - v*
-
 env:
   CRATE_NAME: simpalt
   CHECK_INTEGRATIONS: true
   RUSTFLAGS: "-Dwarnings"
-
 jobs:
   check:
     name: Check
