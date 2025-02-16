@@ -16,7 +16,7 @@ jobs:
         uses: actions/checkout@v4
       - name: Check version
         run: |
-          version=`cargo metadata | jq -r '.packages[] | select(.name == "${{ env.CRATE_NAME }}") | .version'`
+          version=`cargo metadata --format-version 1 | jq -r '.packages[] | select(.name == "${{ env.CRATE_NAME }}") | .version'`
           version=v"${version}"
           [ "${version}" ] && [ "${version}" == "${{ github.ref_name }}" ]
   check:
@@ -34,7 +34,7 @@ jobs:
       - name: Check integrations
         if: env.CHECK_INTEGRATIONS
         run: |
-          VERSION=$(cargo metadata | jq -r '.packages[] | select(.name == "${{ env.CRATE_NAME }}") | .version')
+          VERSION=$(cargo metadata --format-version 1 | jq -r '.packages[] | select(.name == "${{ env.CRATE_NAME }}") | .version')
           ZSH=$(sed 's/%%VERSION%%/'"${VERSION}"'/g' ./loader/simpalt.zsh)
           NU=$(sed 's/%%VERSION%%/'"${VERSION}"'/g' ./loader/simpalt.nu)
           echo Checking version presence
