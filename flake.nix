@@ -3,6 +3,12 @@
     nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
     crane.url = "github:ipetkov/crane";
     flake-utils.url = "github:numtide/flake-utils";
+    treefmt-nix = {
+      url = "github:numtide/treefmt-nix";
+      inputs = {
+        nixpkgs.follows = "nixpkgs";
+      };
+    };
   };
 
   outputs =
@@ -11,6 +17,7 @@
       nixpkgs,
       crane,
       flake-utils,
+      treefmt-nix,
       ...
     }:
     flake-utils.lib.eachDefaultSystem (
@@ -25,13 +32,21 @@
 
           nativeBuildInputs = with pkgs; [ pkg-config ];
           buildInputs = with pkgs; [ openssl ] ++ lib.optionals stdenv.isDarwin [ libiconv ];
-
-          CARGO_BUILD_RUSTFLAGS = "-C target-cpu=native -C prefer-dynamic=no";
         };
 
         cargoArtifacts = craneLib.buildDepsOnly commonArgs;
 
-        simpalt = craneLib.buildPackage (commonArgs // { inherit cargoArtifacts; });
+        simpalt = craneLib.buildPackage (
+          commonArgs
+          // {
+            inherit cargoArtifacts;
+
+            env = {
+              CARGO_PROFILE = "mega";
+              CARGO_BUILD_RUSTFLAGS = "-C target-cpu=native -C prefer-dynamic=no";
+            };
+          }
+        );
 
         hack =
           {
@@ -87,7 +102,7 @@
           }:
           ''
             __simpalt_build_prompt() {
-              (( ? != 0 )) && local has_error='-e'
+              (( $? != 0 )) && local has_error='-e'
               [ "''${jobstates}" ] && local has_jobs='-j'
           ''
           + (
@@ -138,10 +153,79 @@
 
         devShells.default = craneLib.devShell {
           checks = self.checks.${system};
-          packages = with pkgs; [ cargo-hack ];
+          packages = with pkgs; [
+            cargo-hack
+            (pkgs.writeShellScriptBin "cargo-all" ''
+              #!/usr/bin/env bash
+              shift
+
+              while (( $# > 0 )); do
+                case "$1" in
+                  nightly)
+                    nightly='+nightly' ;;
+                  run|r)
+                    run=1 ;;
+                  clean|c)
+                    clean=1 ;;
+                esac
+                shift
+              done
+
+              if [ $clean ]; then
+                echo "[34mCleaning[m" && \
+                cargo clean
+              fi && \
+              echo "[34mFormatting[m" && \
+              cargo $nightly fmt --all && \
+              echo "[34mChecking main[m" && \
+              cargo $nightly hack --feature-powerset check --workspace $@ && \
+              echo "[34mChecking examples[m" && \
+              cargo $nightly hack --feature-powerset check --workspace --examples $@ && \
+              echo "[34mChecking tests[m" && \
+              cargo $nightly hack --feature-powerset check --workspace --tests $@ && \
+              echo "[34mLinting main[m" && \
+              cargo $nightly hack --feature-powerset clippy --workspace $@ && \
+              echo "[34mLinting tests[m" && \
+              cargo $nightly hack --feature-powerset clippy --workspace --tests $@ && \
+              echo "[34mLinting examples[m" && \
+              cargo $nightly hack --feature-powerset clippy --workspace --examples $@ && \
+              echo "[34mTesting main[m" && \
+              cargo $nightly hack --feature-powerset test --workspace $@ && \
+              if [ "$run" ]; then
+                echo "[34mRunning[m" && \
+                cargo $nightly run $@
+              fi
+            '')
+          ];
         };
 
-        formatter = pkgs.nixfmt-rfc-style;
+        formatter =
+          (treefmt-nix.lib.evalModule pkgs {
+            projectRootFile = "Cargo.toml";
+            programs = {
+              nixfmt.enable = true;
+              # nufmt.enable = true;
+              rustfmt.enable = true;
+              shfmt.enable = true;
+              taplo.enable = true;
+              yamlfmt.enable = true;
+            };
+            settings = {
+              excludes = [
+                "*.lock"
+                ".direnv/*"
+                ".envrc"
+                ".gitignore"
+                "result*/"
+                "target/*"
+              ];
+              formatter = {
+                shfmt.includes = [
+                  "*.zsh"
+                ];
+              };
+            };
+          }).config.build.wrapper;
       }
     );
 }
