@@ -51,7 +51,7 @@ export-env {
 }
 
 # Allow toggling simpalt prompt length
-export def-env toggle_simpalt [] {
+export def --env toggle_simpalt [] {
   # Tip: add a keymap calling this command
   #
   # {
