@@ -1,5 +1,5 @@
-use crate::git::short as git;
 use crate::Result;
+use crate::git::short as git;
 
 macro_rules! chevron {
     ($color: expr) => {

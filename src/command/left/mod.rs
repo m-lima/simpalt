@@ -2,7 +2,7 @@ mod long;
 mod short;
 
 use super::Compat;
-use crate::{compat, Result};
+use crate::{Result, compat};
 
 #[derive(Debug, Eq, PartialEq)]
 pub struct Args {

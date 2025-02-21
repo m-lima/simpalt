@@ -1,5 +1,5 @@
-use crate::git::long as git;
 use crate::Result;
+use crate::git::long as git;
 
 pub fn render<Out>(out: Out, host: Option<String>, error: bool, jobs: bool) -> Result
 where

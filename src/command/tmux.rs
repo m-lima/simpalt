@@ -1,5 +1,5 @@
-use crate::git::long as git;
 use crate::Result;
+use crate::git::long as git;
 
 macro_rules! style {
     (reset $(, $($param: expr),*)?) => {

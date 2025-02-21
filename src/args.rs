@@ -183,9 +183,11 @@ mod tests {
                 compat: command::Compat::Zsh,
             },
             super::parse_left(
-                ["first", "", "-3", "-e", "second", "-j", "last", "-l", "-e", "-j", "-z", ""]
-                    .map(String::from)
-                    .into_iter()
+                [
+                    "first", "", "-3", "-e", "second", "-j", "last", "-l", "-e", "-j", "-z", ""
+                ]
+                .map(String::from)
+                .into_iter()
             )
         );
     }

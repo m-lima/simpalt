@@ -1,5 +1,5 @@
 use super::Compat;
-use crate::{compat, Result};
+use crate::{Result, compat};
 use chrono::Timelike;
 
 #[derive(Debug, Eq, PartialEq)]

@@ -78,19 +78,19 @@ pub fn parse(path: &std::path::PathBuf) -> Repo {
     match repo.state() {
         git2::RepositoryState::Merge => return Repo::Pending(head, Pending::Merge, changes),
         git2::RepositoryState::Revert | git2::RepositoryState::RevertSequence => {
-            return Repo::Pending(head, Pending::Revert, changes)
+            return Repo::Pending(head, Pending::Revert, changes);
         }
         git2::RepositoryState::CherryPick | git2::RepositoryState::CherryPickSequence => {
-            return Repo::Pending(head, Pending::Cherry, changes)
+            return Repo::Pending(head, Pending::Cherry, changes);
         }
         git2::RepositoryState::Bisect => return Repo::Pending(head, Pending::Bisect, changes),
         git2::RepositoryState::Rebase
         | git2::RepositoryState::RebaseInteractive
         | git2::RepositoryState::RebaseMerge => {
-            return Repo::Pending(head, Pending::Rebase, changes)
+            return Repo::Pending(head, Pending::Rebase, changes);
         }
         git2::RepositoryState::ApplyMailbox | git2::RepositoryState::ApplyMailboxOrRebase => {
-            return Repo::Pending(head, Pending::Mailbox, changes)
+            return Repo::Pending(head, Pending::Mailbox, changes);
         }
         git2::RepositoryState::Clean => {}
     }
