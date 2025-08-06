@@ -253,7 +253,7 @@ impl EnvFetcher for SysEnv {
     fn direnv(&self) -> Option<(String, bool)> {
         std::env::var("DIRENV_DIR")
             .ok()
-            .map(|d| (d, std::env::var("DIRENV_ACTIVE").is_ok()))
+            .map(|d| (d, super::direnv::is_active().unwrap_or(false)))
     }
 }
 

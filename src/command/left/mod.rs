@@ -1,3 +1,4 @@
+mod direnv;
 mod long;
 mod short;
 

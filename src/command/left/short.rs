@@ -194,9 +194,7 @@ impl EnvFetcher for SysEnv {
     }
 
     fn direnv(&self) -> Option<bool> {
-        std::env::var("DIRENV_DIR")
-            .ok()
-            .map(|_| std::env::var("DIRENV_ACTIVE").is_ok())
+        super::direnv::is_active()
     }
 }
 

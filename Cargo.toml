@@ -4,11 +4,14 @@ version = "0.3.8"
 edition = "2024"
 
 [dependencies]
+base64 = "0.22.1"
 chrono = { version = "0.4.41", default-features = false, features = [
   "clock",
   "std",
 ] }
+flate2 = "1.1.2"
 git2 = "0.20.2"
+simd-json = { version = "0.15.1", default-features = false, features = ["swar-number-parsing", "runtime-detection"] }
 
 [dev-dependencies]
 regex = "1.11.1"
