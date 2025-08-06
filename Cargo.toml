@@ -11,7 +11,10 @@ chrono = { version = "0.4.41", default-features = false, features = [
 ] }
 flate2 = "1.1.2"
 git2 = "0.20.2"
-simd-json = { version = "0.15.1", default-features = false, features = ["swar-number-parsing", "runtime-detection"] }
+simd-json = { version = "0.15.1", default-features = false, features = [
+  "swar-number-parsing",
+  "runtime-detection",
+] }
 
 [dev-dependencies]
 regex = "1.11.1"

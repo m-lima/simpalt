@@ -20,17 +20,22 @@
 
   outputs =
     {
+      self,
+      flake-utils,
       helper,
       ...
     }@inputs:
-    helper.lib.rust.helper inputs {
-      buildInputs = pkgs: [ pkgs.openssl ];
-      nativeBuildInputs = pkgs: [ pkgs.pkg-config ];
-      fmts = [
-        "shfmt"
-        "yamlfmt"
-      ];
-    } ./. "simpalt"
+    flake-utils.lib.eachDefaultSystem (
+      system:
+      (helper.lib.rust.helper inputs system ./. {
+        buildInputs = pkgs: [ pkgs.openssl ];
+        nativeBuildInputs = pkgs: [ pkgs.pkg-config ];
+        formatters = {
+          shfmt.enable = true;
+          yamlfmt.enable = true;
+        };
+      }).outputs
+    )
     // {
       lib.zsh =
         {
