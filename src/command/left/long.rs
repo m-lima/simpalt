@@ -46,8 +46,12 @@ where
         }
     }
 
-    if let Some(direnv) = enver.direnv() {
-        out.div(&mut last, color!(magenta), color!(black))?;
+    if let Some((direnv, active)) = enver.direnv() {
+        if active {
+            out.div(&mut last, color!(green), color!(black))?;
+        } else {
+            out.div(&mut last, color!(magenta), color!(black))?;
+        }
         if let Some(direnv) = direnv.rsplit(std::path::MAIN_SEPARATOR).next() {
             write!(out, "{direnv}")?;
         } else {
@@ -225,7 +229,7 @@ trait EnvFetcher {
     fn pwd(&self) -> Option<std::path::PathBuf>;
     fn home(&self) -> Option<String>;
     fn venv(&self) -> Option<String>;
-    fn direnv(&self) -> Option<String>;
+    fn direnv(&self) -> Option<(String, bool)>;
 }
 
 #[derive(Copy, Clone)]
@@ -246,8 +250,10 @@ impl EnvFetcher for SysEnv {
         std::env::var("VIRTUAL_ENV").ok()
     }
 
-    fn direnv(&self) -> Option<String> {
-        std::env::var("DIRENV_DIR").ok()
+    fn direnv(&self) -> Option<(String, bool)> {
+        std::env::var("DIRENV_DIR")
+            .ok()
+            .map(|d| (d, std::env::var("DIRENV_ACTIVE").is_ok()))
     }
 }
 
@@ -261,7 +267,7 @@ mod tests {
         pwd: Option<std::path::PathBuf>,
         home: Option<String>,
         venv: Option<String>,
-        direnv: Option<String>,
+        direnv: Option<(String, bool)>,
     }
 
     impl EnvFetcher for MockEnv {
@@ -277,7 +283,7 @@ mod tests {
             self.venv.clone()
         }
 
-        fn direnv(&self) -> Option<String> {
+        fn direnv(&self) -> Option<(String, bool)> {
             self.direnv.clone()
         }
     }
@@ -376,7 +382,7 @@ mod tests {
                     pwd: Some(std::path::PathBuf::from("/some/home/path/further/on")),
                     home: Some(String::from("/some/home/path")),
                     venv: Some(String::from("py")),
-                    direnv: Some(String::from("/some/direnv")),
+                    direnv: Some((String::from("/some/direnv"), false)),
                 },
             )
         });
@@ -420,7 +426,7 @@ mod tests {
                     pwd: Some(std::path::PathBuf::from("/some/home/path/further/on")),
                     home: Some(String::from("/some/home/path")),
                     venv: None,
-                    direnv: Some(String::from("/some/direnv")),
+                    direnv: Some((String::from("/some/direnv"), false)),
                 },
             )
         });
@@ -440,6 +446,47 @@ mod tests {
                 style!(fg = color!(black)),
                 " direnv ",
                 style!(fg = color!(magenta), bg = color!(blue), symbol!(div)),
+                style!(fg = color!(black)),
+                " ~/further/on ",
+                style!(fg = color!(blue), bg = color!(reset), symbol!(div)),
+                style!(fg = color!(reset)),
+                " "
+            )
+        );
+    }
+
+    #[test]
+    fn direnv_active() {
+        let result = test(|s| {
+            render_inner(
+                s,
+                Some(String::from("[31mH")),
+                true,
+                true,
+                &MockEnv {
+                    pwd: Some(std::path::PathBuf::from("/some/home/path/further/on")),
+                    home: Some(String::from("/some/home/path")),
+                    venv: None,
+                    direnv: Some((String::from("/some/direnv"), true)),
+                },
+            )
+        });
+        assert_eq!(
+            result,
+            concat!(
+                style!(fg = color!(red), bg = color!(black)),
+                " ",
+                symbol!(error),
+                " ",
+                style!(fg = color!(cyan), symbol!(jobs)),
+                " ",
+                style!(fg = color!(reset), style!(fg = color!(red), "H")),
+                style!(reset to bg = color!(black)),
+                " ",
+                style!(fg = color!(black), bg = color!(green), symbol!(div)),
+                style!(fg = color!(black)),
+                " direnv ",
+                style!(fg = color!(green), bg = color!(blue), symbol!(div)),
                 style!(fg = color!(black)),
                 " ~/further/on ",
                 style!(fg = color!(blue), bg = color!(reset), symbol!(div)),
