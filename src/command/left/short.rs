@@ -90,10 +90,10 @@ where
 }
 
 fn pwd_string(path: &std::path::PathBuf, enver: &impl EnvFetcher) -> String {
-    if let Some(home) = enver.home() {
-        if home.eq(path) {
-            return String::from("~");
-        }
+    if let Some(home) = enver.home()
+        && home.eq(path)
+    {
+        return String::from("~");
     }
 
     let (prefix, components) =

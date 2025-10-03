@@ -62,13 +62,13 @@ where
     let pwd = enver.pwd();
 
     out.div(&mut last, color!(blue), color!(black))?;
-    if let Some(ref pwd) = pwd {
-        if let Some(pwd) = pwd.to_str() {
-            if let Some(pwd) = enver.home().and_then(|home| pwd.strip_prefix(&home)) {
-                write!(out, "~{pwd}")?;
-            } else {
-                write!(out, "{pwd}")?;
-            }
+    if let Some(ref pwd) = pwd
+        && let Some(pwd) = pwd.to_str()
+    {
+        if let Some(pwd) = enver.home().and_then(|home| pwd.strip_prefix(&home)) {
+            write!(out, "~{pwd}")?;
+        } else {
+            write!(out, "{pwd}")?;
         }
     }
 
