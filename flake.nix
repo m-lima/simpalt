@@ -41,6 +41,7 @@
                 pkgs = nixpkgs.legacyPackages.${system};
               in
               pkgs.runCommand "checkglue" { src = ./.; } ''
+                ${pkgs.coreutils}/bin/touch $out
                 VERSION=$(${pkgs.dasel}/bin/dasel -f $src/Cargo.toml -r toml '.package.version' | ${pkgs.coreutils}/bin/tr -d "'")
                 ZSH=$(${pkgs.gnused}/bin/sed 's/%%VERSION%%/'"$VERSION"'/g' $src/loader/simpalt.zsh)
                 NU=$(${pkgs.gnused}/bin/sed 's/%%VERSION%%/'"$VERSION"'/g' $src/loader/simpalt.nu)
