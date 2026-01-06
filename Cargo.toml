@@ -1,6 +1,6 @@
 [package]
 name = "simpalt"
-version = "0.3.9"
+version = "0.3.10"
 edition = "2024"
 
 [dependencies]
@@ -9,12 +9,12 @@ chrono = { version = "0.4.42", default-features = false, features = [
   "clock",
   "std",
 ] }
-flate2 = "1.1.2"
-git2 = "0.20.2"
-simd-json = { version = "0.16.0", default-features = false, features = [
+flate2 = "1.1.5"
+git2 = "0.20.3"
+simd-json = { version = "0.17.0", default-features = false, features = [
   "swar-number-parsing",
   "runtime-detection",
 ] }
 
 [dev-dependencies]
-regex = "1.11.3"
+regex = "1.12.2"
