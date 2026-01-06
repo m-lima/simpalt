@@ -28,6 +28,7 @@
     flake-utils.lib.eachDefaultSystem (
       system:
       (helper.lib.rust.helper inputs system ./. {
+        systemLinker = true;
         buildInputs = pkgs: [ pkgs.openssl ];
         nativeBuildInputs = pkgs: [ pkgs.pkg-config ];
         formatters = {
