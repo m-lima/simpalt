@@ -27,8 +27,11 @@
     }@inputs:
     flake-utils.lib.eachDefaultSystem (
       system:
+      let
+        pkgs = nixpkgs.legacyPackages.${system};
+      in
       (helper.lib.rust.helper inputs system ./. {
-        systemLinker = true;
+        systemLinker = pkgs.stdenv.isLinux;
         buildInputs = pkgs: [ pkgs.openssl ];
         nativeBuildInputs = pkgs: [ pkgs.pkg-config ];
         formatters = {
@@ -37,22 +40,18 @@
         };
         overrides = {
           checks = {
-            glue =
-              let
-                pkgs = nixpkgs.legacyPackages.${system};
-              in
-              pkgs.runCommand "checkglue" { src = ./.; } ''
-                ${pkgs.coreutils}/bin/touch $out
-                VERSION=$(${pkgs.dasel}/bin/dasel -f $src/Cargo.toml -r toml '.package.version' | ${pkgs.coreutils}/bin/tr -d "'")
-                ZSH=$(${pkgs.gnused}/bin/sed 's/%%VERSION%%/'"$VERSION"'/g' $src/loader/simpalt.zsh)
-                NU=$(${pkgs.gnused}/bin/sed 's/%%VERSION%%/'"$VERSION"'/g' $src/loader/simpalt.nu)
-                echo Checking version presence
-                [ -n "$VERSION" ]
-                echo Checking ZSH integration
-                ${pkgs.diffutils}/bin/diff $src/simpalt.zsh <(echo "$ZSH")
-                echo Checking NU integration
-                ${pkgs.diffutils}/bin/diff $src/simpalt.nu <(echo "$NU")
-              '';
+            glue = pkgs.runCommand "checkglue" { src = ./.; } ''
+              ${pkgs.coreutils}/bin/touch $out
+              VERSION=$(${pkgs.dasel}/bin/dasel -f $src/Cargo.toml -r toml '.package.version' | ${pkgs.coreutils}/bin/tr -d "'")
+              ZSH=$(${pkgs.gnused}/bin/sed 's/%%VERSION%%/'"$VERSION"'/g' $src/loader/simpalt.zsh)
+              NU=$(${pkgs.gnused}/bin/sed 's/%%VERSION%%/'"$VERSION"'/g' $src/loader/simpalt.nu)
+              echo Checking version presence
+              [ -n "$VERSION" ]
+              echo Checking ZSH integration
+              ${pkgs.diffutils}/bin/diff $src/simpalt.zsh <(echo "$ZSH")
+              echo Checking NU integration
+              ${pkgs.diffutils}/bin/diff $src/simpalt.nu <(echo "$NU")
+            '';
           };
         };
       }).outputs
