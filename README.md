@@ -7,7 +7,7 @@
 A blazing fast ZSH and NuShell theme written in Rust with focus on information density, screen real estate, and beauty.
 
 ###### Demo
-[Demo](.github/res/demo.gif)
+![Demo](.github/res/demo.gif)
 
 How to use it
 ---------------------
