@@ -1,13 +1,13 @@
 export-env {
   if (which simpalt | is-empty) {
     print $'(ansi red)Prompt error:(ansi reset) `simpalt` not found. Make sure that it is in your (ansi yellow)PATH(ansi reset). Reverting to default prompt'
-    print $'Binaries available for major platforms at (ansi blue)https://github.com/m-lima/simpalt-rs/releases(ansi reset)'
+    print $'Binaries available for major platforms at (ansi blue)https://github.com/m-lima/simpalt/releases(ansi reset)'
     {}
   } else {
     let simpalt_version = (simpalt v | str trim)
     if $simpalt_version != "0.3.10" {
       print $'(ansi yellow)Prompt info:(ansi reset) Expected version (ansi white)0.3.10(ansi reset) but `simpalt` is reporting version (ansi white)'($simpalt_version)'(ansi reset)'
-      print $'Check (ansi blue)https://github.com/m-lima/simpalt-rs/releases(ansi reset) for the latest version'
+      print $'Check (ansi blue)https://github.com/m-lima/simpalt/releases(ansi reset) for the latest version'
     }
 
     let simpalt_host = if 'SIMPALT_HOST' in $env {

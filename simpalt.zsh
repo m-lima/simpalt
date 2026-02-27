@@ -1,7 +1,7 @@
 if $(command -v simpalt &>/dev/null); then
   if [[ "$(simpalt v)" != "0.3.10" ]]; then
     echo '[33mPrompt info:[m Expected version [37m0.3.10[m but `simpalt` is reporting version [37m'$(simpalt v)'[m'
-    echo 'Check [34mhttps://github.com/m-lima/simpalt-rs/releases[m for the latest version'
+    echo 'Check [34mhttps://github.com/m-lima/simpalt/releases[m for the latest version'
   fi
 
   __simpalt_build_prompt() {
@@ -34,5 +34,5 @@ if $(command -v simpalt &>/dev/null); then
   VIRTUAL_ENV_DISABLE_PROMPT=1
 else
   echo '[31mPrompt error:[m `simpalt` not found. Make sure that it is in your [33m$PATH[m. Reverting to default prompt'
-  echo 'Binaries available for major platforms at [34mhttps://github.com/m-lima/simpalt-rs/releases[m'
+  echo 'Binaries available for major platforms at [34mhttps://github.com/m-lima/simpalt/releases[m'
 fi
