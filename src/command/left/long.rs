@@ -37,25 +37,26 @@ where
         write!(out, style!(reset to bg = color!(black)))?;
     }
 
+    if let Some((direnv, active)) = enver.direnv() {
+        if active {
+            write!(out, style!(fg = color!(green)))?;
+        } else {
+            write!(out, style!(fg = color!(blue)))?;
+        }
+        write!(out, concat!(" ", symbol!(div thin), " "))?;
+        if let Some(direnv) = direnv.rsplit(std::path::MAIN_SEPARATOR).next() {
+            write!(out, "{direnv}")?;
+        } else {
+            write!(out, "{direnv}")?;
+        }
+    }
+
     if let Some(venv) = enver.venv() {
         out.div(&mut last, color!(cyan), color!(black))?;
         if let Some(venv) = venv.rsplit(std::path::MAIN_SEPARATOR).next() {
             write!(out, "{venv}")?;
         } else {
             write!(out, "{venv}")?;
-        }
-    }
-
-    if let Some((direnv, active)) = enver.direnv() {
-        if active {
-            out.div(&mut last, color!(green), color!(black))?;
-        } else {
-            out.div(&mut last, color!(magenta), color!(black))?;
-        }
-        if let Some(direnv) = direnv.rsplit(std::path::MAIN_SEPARATOR).next() {
-            write!(out, "{direnv}")?;
-        } else {
-            write!(out, "{direnv}")?;
         }
     }
 
@@ -291,22 +292,22 @@ mod tests {
     #[test]
     fn all_empty() {
         let result = test(|s| render_inner(s, None, false, false, &MockEnv::default()));
-        assert_eq!(
-            result,
-            concat!(
-                // Missing error
-                // Missing jobs
-                // Missing venv
-                // Missing HOST
-                style!(fg = color!(black), bg = color!(blue)),
-                " ",
-                // Missing PWD
-                " ",
-                style!(fg = color!(blue), bg = color!(reset), symbol!(div)),
-                style!(fg = color!(reset)),
-                " "
-            )
+        let expected = concat!(
+            // Missing error
+            // Missing jobs
+            // Missing venv
+            // Missing HOST
+            style!(fg = color!(black), bg = color!(blue)),
+            " ",
+            // Missing PWD
+            " ",
+            style!(fg = color!(blue), bg = color!(reset), symbol!(div)),
+            style!(fg = color!(reset)),
+            " "
         );
+        println!("{result}");
+        println!("{expected}");
+        assert_eq!(result, expected);
     }
 
     #[test]
@@ -323,20 +324,20 @@ mod tests {
                 },
             )
         });
-        assert_eq!(
-            result,
-            concat!(
-                // Missing error
-                // Missing jobs
-                // Missing venv
-                // Missing HOST
-                style!(fg = color!(black), bg = color!(blue)),
-                " / ",
-                style!(fg = color!(blue), bg = color!(reset), symbol!(div)),
-                style!(fg = color!(reset)),
-                " "
-            )
+        let expected = concat!(
+            // Missing error
+            // Missing jobs
+            // Missing venv
+            // Missing HOST
+            style!(fg = color!(black), bg = color!(blue)),
+            " / ",
+            style!(fg = color!(blue), bg = color!(reset), symbol!(div)),
+            style!(fg = color!(reset)),
+            " "
         );
+        println!("{result}");
+        println!("{expected}");
+        assert_eq!(result, expected);
     }
 
     #[test]
@@ -354,20 +355,20 @@ mod tests {
                 },
             )
         });
-        assert_eq!(
-            result,
-            concat!(
-                // Missing error
-                // Missing jobs
-                // Missing venv
-                // Missing HOST
-                style!(fg = color!(black), bg = color!(blue)),
-                " ~/further/on ",
-                style!(fg = color!(blue), bg = color!(reset), symbol!(div)),
-                style!(fg = color!(reset)),
-                " "
-            )
+        let expected = concat!(
+            // Missing error
+            // Missing jobs
+            // Missing venv
+            // Missing HOST
+            style!(fg = color!(black), bg = color!(blue)),
+            " ~/further/on ",
+            style!(fg = color!(blue), bg = color!(reset), symbol!(div)),
+            style!(fg = color!(reset)),
+            " "
         );
+        println!("{result}");
+        println!("{expected}");
+        assert_eq!(result, expected);
     }
 
     #[test]
@@ -386,32 +387,32 @@ mod tests {
                 },
             )
         });
-        assert_eq!(
-            result,
-            concat!(
-                style!(fg = color!(red), bg = color!(black)),
-                " ",
-                symbol!(error),
-                " ",
-                style!(fg = color!(cyan), symbol!(jobs)),
-                " ",
-                style!(fg = color!(reset), style!(fg = color!(red), "H")),
-                style!(reset to bg = color!(black)),
-                " ",
-                style!(fg = color!(black), bg = color!(cyan), symbol!(div)),
-                style!(fg = color!(black)),
-                " py ",
-                style!(fg = color!(cyan), bg = color!(magenta), symbol!(div)),
-                style!(fg = color!(black)),
-                " direnv ",
-                style!(fg = color!(magenta), bg = color!(blue), symbol!(div)),
-                style!(fg = color!(black)),
-                " ~/further/on ",
-                style!(fg = color!(blue), bg = color!(reset), symbol!(div)),
-                style!(fg = color!(reset)),
-                " "
-            )
+        let expected = concat!(
+            style!(fg = color!(red), bg = color!(black)),
+            " ",
+            symbol!(error),
+            " ",
+            style!(fg = color!(cyan), symbol!(jobs)),
+            " ",
+            style!(fg = color!(reset), style!(fg = color!(red), "H")),
+            style!(reset to bg = color!(black)),
+            style!(fg = color!(blue)),
+            " ",
+            symbol!(div thin),
+            " direnv ",
+            style!(fg = color!(black), bg = color!(cyan), symbol!(div)),
+            style!(fg = color!(black)),
+            " py ",
+            style!(fg = color!(cyan), bg = color!(blue), symbol!(div)),
+            style!(fg = color!(black)),
+            " ~/further/on ",
+            style!(fg = color!(blue), bg = color!(reset), symbol!(div)),
+            style!(fg = color!(reset)),
+            " "
         );
+        println!("{result}");
+        println!("{expected}");
+        assert_eq!(result, expected);
     }
 
     #[test]
@@ -430,29 +431,29 @@ mod tests {
                 },
             )
         });
-        assert_eq!(
-            result,
-            concat!(
-                style!(fg = color!(red), bg = color!(black)),
-                " ",
-                symbol!(error),
-                " ",
-                style!(fg = color!(cyan), symbol!(jobs)),
-                " ",
-                style!(fg = color!(reset), style!(fg = color!(red), "H")),
-                style!(reset to bg = color!(black)),
-                " ",
-                style!(fg = color!(black), bg = color!(magenta), symbol!(div)),
-                style!(fg = color!(black)),
-                " direnv ",
-                style!(fg = color!(magenta), bg = color!(blue), symbol!(div)),
-                style!(fg = color!(black)),
-                " ~/further/on ",
-                style!(fg = color!(blue), bg = color!(reset), symbol!(div)),
-                style!(fg = color!(reset)),
-                " "
-            )
+        let expected = concat!(
+            style!(fg = color!(red), bg = color!(black)),
+            " ",
+            symbol!(error),
+            " ",
+            style!(fg = color!(cyan), symbol!(jobs)),
+            " ",
+            style!(fg = color!(reset), style!(fg = color!(red), "H")),
+            style!(reset to bg = color!(black)),
+            style!(fg = color!(blue)),
+            " ",
+            symbol!(div thin),
+            " direnv ",
+            style!(fg = color!(black), bg = color!(blue), symbol!(div)),
+            style!(fg = color!(black)),
+            " ~/further/on ",
+            style!(fg = color!(blue), bg = color!(reset), symbol!(div)),
+            style!(fg = color!(reset)),
+            " "
         );
+        println!("{result}");
+        println!("{expected}");
+        assert_eq!(result, expected);
     }
 
     #[test]
@@ -471,28 +472,28 @@ mod tests {
                 },
             )
         });
-        assert_eq!(
-            result,
-            concat!(
-                style!(fg = color!(red), bg = color!(black)),
-                " ",
-                symbol!(error),
-                " ",
-                style!(fg = color!(cyan), symbol!(jobs)),
-                " ",
-                style!(fg = color!(reset), style!(fg = color!(red), "H")),
-                style!(reset to bg = color!(black)),
-                " ",
-                style!(fg = color!(black), bg = color!(green), symbol!(div)),
-                style!(fg = color!(black)),
-                " direnv ",
-                style!(fg = color!(green), bg = color!(blue), symbol!(div)),
-                style!(fg = color!(black)),
-                " ~/further/on ",
-                style!(fg = color!(blue), bg = color!(reset), symbol!(div)),
-                style!(fg = color!(reset)),
-                " "
-            )
+        let expected = concat!(
+            style!(fg = color!(red), bg = color!(black)),
+            " ",
+            symbol!(error),
+            " ",
+            style!(fg = color!(cyan), symbol!(jobs)),
+            " ",
+            style!(fg = color!(reset), style!(fg = color!(red), "H")),
+            style!(reset to bg = color!(black)),
+            style!(fg = color!(green)),
+            " ",
+            symbol!(div thin),
+            " direnv ",
+            style!(fg = color!(black), bg = color!(blue), symbol!(div)),
+            style!(fg = color!(black)),
+            " ~/further/on ",
+            style!(fg = color!(blue), bg = color!(reset), symbol!(div)),
+            style!(fg = color!(reset)),
+            " "
         );
+        println!("{result}");
+        println!("{expected}");
+        assert_eq!(result, expected);
     }
 }
