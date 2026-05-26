@@ -41,6 +41,11 @@ where
         should_recolor = true;
     }
 
+    if enver.nixshell() {
+        write!(out, style!(fg = color!(yellow), symbol!(pkg), " "))?;
+        should_recolor = true;
+    }
+
     if let Some(active) = enver.direnv() {
         if active {
             write!(out, style!(fg = color!(green), symbol!(direnv), " "))?;
@@ -173,6 +178,7 @@ trait EnvFetcher {
     fn home(&self) -> Option<std::path::PathBuf>;
     fn venv(&self) -> bool;
     fn direnv(&self) -> Option<bool>;
+    fn nixshell(&self) -> bool;
 }
 
 #[derive(Copy, Clone)]
@@ -196,6 +202,10 @@ impl EnvFetcher for SysEnv {
     fn direnv(&self) -> Option<bool> {
         super::direnv::is_active()
     }
+
+    fn nixshell(&self) -> bool {
+        std::env::var("NIX_SHELL").is_ok()
+    }
 }
 
 #[cfg(test)]
@@ -218,6 +228,7 @@ mod tests {
         home: Option<std::path::PathBuf>,
         venv: bool,
         direnv: Option<bool>,
+        nixshell: bool,
     }
 
     impl EnvFetcher for MockEnv {
@@ -235,6 +246,10 @@ mod tests {
 
         fn direnv(&self) -> Option<bool> {
             self.direnv
+        }
+
+        fn nixshell(&self) -> bool {
+            self.nixshell
         }
     }
 
@@ -371,6 +386,7 @@ mod tests {
                     home: Some(std::path::PathBuf::from("/some/home/path")),
                     venv: true,
                     direnv: Some(false),
+                    nixshell: true,
                 },
             )
         });
@@ -380,6 +396,8 @@ mod tests {
             style!(fg = color!(red), symbol!(error)),
             " ",
             style!(fg = color!(cyan), symbol!(jobs)),
+            " ",
+            style!(fg = color!(yellow), symbol!(pkg)),
             " ",
             style!(fg = color!(blue), symbol!(direnv)),
             " ",
@@ -413,6 +431,7 @@ mod tests {
                     home: Some(std::path::PathBuf::from("/some/home/path")),
                     venv: false,
                     direnv: Some(false),
+                    nixshell: false,
                 },
             )
         });
@@ -453,6 +472,7 @@ mod tests {
                     home: Some(std::path::PathBuf::from("/some/home/path")),
                     venv: false,
                     direnv: Some(true),
+                    nixshell: false,
                 },
             )
         });
@@ -464,6 +484,47 @@ mod tests {
             style!(fg = color!(cyan), symbol!(jobs)),
             " ",
             style!(fg = color!(green), symbol!(direnv)),
+            " ",
+            style!(fg = color!(reset)),
+            style!(fg = color!(red), "H"),
+            style!(reset to bg = color!(black)),
+            " ",
+            "~",
+            " ",
+            chevron!(color!(blue)),
+            style!(reset),
+            " "
+        );
+        println!("{result}");
+        println!("{expected}");
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn nixshell() {
+        let result = test(|s| {
+            render_inner(
+                s,
+                Some(String::from("[31mH")),
+                true,
+                true,
+                &MockEnv {
+                    pwd: Some(std::path::PathBuf::from("/some/home/path/")),
+                    home: Some(std::path::PathBuf::from("/some/home/path")),
+                    venv: false,
+                    direnv: None,
+                    nixshell: true,
+                },
+            )
+        });
+        let expected = concat!(
+            style!(reset to bg = color!(black)),
+            " ",
+            style!(fg = color!(red), symbol!(error)),
+            " ",
+            style!(fg = color!(cyan), symbol!(jobs)),
+            " ",
+            style!(fg = color!(yellow), symbol!(pkg)),
             " ",
             style!(fg = color!(reset)),
             style!(fg = color!(red), "H"),

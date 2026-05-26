@@ -37,6 +37,17 @@ where
         write!(out, style!(reset to bg = color!(black)))?;
     }
 
+    if let Some(nixshell) = enver.nixshell() {
+        write!(
+            out,
+            style!(
+                fg = color!(yellow),
+                concat!(" ", symbol!(div thin), " {nixshell}")
+            ),
+            nixshell = nixshell
+        )?;
+    }
+
     if let Some((direnv, active)) = enver.direnv() {
         if active {
             write!(out, style!(fg = color!(green)))?;
@@ -74,58 +85,70 @@ where
     }
 
     if let Some(ref pwd) = pwd {
-        match git::parse(pwd) {
-            git::Repo::None => {}
-            git::Repo::Error => {
-                out.div(&mut last, color!(red), color!(black))?;
-                write!(out, "!")?;
-            }
-            git::Repo::Regular(head, sync, changes) => {
-                if changes.clean() {
-                    out.render_sync(&mut last, sync)?;
-                    out.div(&mut last, color!(green), color!(black))?;
-                    write!(out, concat!(symbol!(branch), "{head}"), head = head)?;
-                } else {
-                    out.render_changes(&mut last, changes)?;
-                    if !matches!(
-                        sync,
-                        git::Sync::Tracked {
-                            ahead: 0,
-                            behind: 0
-                        }
-                    ) {
-                        out.div(&mut last, color!(black), color!(reset))?;
-                        write!(out, symbol!(div thin))?;
-                        out.render_sync(&mut last, sync)?;
-                    }
-                    out.div(&mut last, color!(yellow), color!(black))?;
-                    write!(out, concat!(symbol!(branch), "{head}"), head = head)?;
-                }
-            }
-            git::Repo::Detached(head, changes) => {
-                out.render_changes(&mut last, changes)?;
-                out.div(&mut last, color!(magenta), color!(black))?;
-                write!(out, concat!(symbol!(ref), "{head}"), head = head)?;
-            }
-            git::Repo::Pending(head, pending, changes) => {
-                out.render_changes(&mut last, changes)?;
-                out.div(&mut last, color!(cyan), color!(black))?;
-                write!(
-                    out,
-                    concat!(symbol!(branch), "{head} {pending}"),
-                    head = head,
-                    pending = pending_symbol(pending),
-                )?;
-            }
-            git::Repo::New(changes) => {
-                out.render_changes(&mut last, changes)?;
-                out.div(&mut last, color!(cyan), color!(black))?;
-                write!(out, symbol!(new))?;
-            }
-        }
+        last = render_git(&mut out, pwd, last)?;
     }
     out.div(&mut last, color!(reset), color!(reset))?;
     out.flush()
+}
+
+fn render_git<Out>(
+    out: &mut Out,
+    pwd: &std::path::PathBuf,
+    mut last: Option<&'static str>,
+) -> Result<Option<&'static str>>
+where
+    Out: std::io::Write,
+{
+    match git::parse(pwd) {
+        git::Repo::None => {}
+        git::Repo::Error => {
+            out.div(&mut last, color!(red), color!(black))?;
+            write!(out, "!")?;
+        }
+        git::Repo::Regular(head, sync, changes) => {
+            if changes.clean() {
+                out.render_sync(&mut last, sync)?;
+                out.div(&mut last, color!(green), color!(black))?;
+                write!(out, concat!(symbol!(branch), "{head}"), head = head)?;
+            } else {
+                out.render_changes(&mut last, changes)?;
+                if !matches!(
+                    sync,
+                    git::Sync::Tracked {
+                        ahead: 0,
+                        behind: 0
+                    }
+                ) {
+                    out.div(&mut last, color!(black), color!(reset))?;
+                    write!(out, symbol!(div thin))?;
+                    out.render_sync(&mut last, sync)?;
+                }
+                out.div(&mut last, color!(yellow), color!(black))?;
+                write!(out, concat!(symbol!(branch), "{head}"), head = head)?;
+            }
+        }
+        git::Repo::Detached(head, changes) => {
+            out.render_changes(&mut last, changes)?;
+            out.div(&mut last, color!(magenta), color!(black))?;
+            write!(out, concat!(symbol!(ref), "{head}"), head = head)?;
+        }
+        git::Repo::Pending(head, pending, changes) => {
+            out.render_changes(&mut last, changes)?;
+            out.div(&mut last, color!(cyan), color!(black))?;
+            write!(
+                out,
+                concat!(symbol!(branch), "{head} {pending}"),
+                head = head,
+                pending = pending_symbol(pending),
+            )?;
+        }
+        git::Repo::New(changes) => {
+            out.render_changes(&mut last, changes)?;
+            out.div(&mut last, color!(cyan), color!(black))?;
+            write!(out, symbol!(new))?;
+        }
+    }
+    Ok(last)
 }
 
 trait Writer {
@@ -231,6 +254,7 @@ trait EnvFetcher {
     fn home(&self) -> Option<String>;
     fn venv(&self) -> Option<String>;
     fn direnv(&self) -> Option<(String, bool)>;
+    fn nixshell(&self) -> Option<String>;
 }
 
 #[derive(Copy, Clone)]
@@ -256,6 +280,10 @@ impl EnvFetcher for SysEnv {
             .ok()
             .map(|d| (d, super::direnv::is_active().unwrap_or(false)))
     }
+
+    fn nixshell(&self) -> Option<String> {
+        std::env::var("NIX_SHELL").ok()
+    }
 }
 
 #[cfg(test)]
@@ -269,6 +297,7 @@ mod tests {
         home: Option<String>,
         venv: Option<String>,
         direnv: Option<(String, bool)>,
+        nixshell: Option<String>,
     }
 
     impl EnvFetcher for MockEnv {
@@ -286,6 +315,10 @@ mod tests {
 
         fn direnv(&self) -> Option<(String, bool)> {
             self.direnv.clone()
+        }
+
+        fn nixshell(&self) -> Option<String> {
+            self.nixshell.clone()
         }
     }
 
@@ -384,6 +417,7 @@ mod tests {
                     home: Some(String::from("/some/home/path")),
                     venv: Some(String::from("py")),
                     direnv: Some((String::from("/some/direnv"), false)),
+                    nixshell: Some(String::from("pkg1 pkg2")),
                 },
             )
         });
@@ -396,10 +430,56 @@ mod tests {
             " ",
             style!(fg = color!(reset), style!(fg = color!(red), "H")),
             style!(reset to bg = color!(black)),
+            style!(fg = color!(yellow)),
+            " ",
+            symbol!(div thin),
+            " pkg1 pkg2",
             style!(fg = color!(blue)),
             " ",
             symbol!(div thin),
             " direnv ",
+            style!(fg = color!(black), bg = color!(cyan), symbol!(div)),
+            style!(fg = color!(black)),
+            " py ",
+            style!(fg = color!(cyan), bg = color!(blue), symbol!(div)),
+            style!(fg = color!(black)),
+            " ~/further/on ",
+            style!(fg = color!(blue), bg = color!(reset), symbol!(div)),
+            style!(fg = color!(reset)),
+            " "
+        );
+        println!("{result}");
+        println!("{expected}");
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn venv() {
+        let result = test(|s| {
+            render_inner(
+                s,
+                Some(String::from("[31mH")),
+                true,
+                true,
+                &MockEnv {
+                    pwd: Some(std::path::PathBuf::from("/some/home/path/further/on")),
+                    home: Some(String::from("/some/home/path")),
+                    venv: Some(String::from("py")),
+                    direnv: None,
+                    nixshell: None,
+                },
+            )
+        });
+        let expected = concat!(
+            style!(fg = color!(red), bg = color!(black)),
+            " ",
+            symbol!(error),
+            " ",
+            style!(fg = color!(cyan), symbol!(jobs)),
+            " ",
+            style!(fg = color!(reset), style!(fg = color!(red), "H")),
+            style!(reset to bg = color!(black)),
+            " ",
             style!(fg = color!(black), bg = color!(cyan), symbol!(div)),
             style!(fg = color!(black)),
             " py ",
@@ -428,6 +508,7 @@ mod tests {
                     home: Some(String::from("/some/home/path")),
                     venv: None,
                     direnv: Some((String::from("/some/direnv"), false)),
+                    nixshell: None,
                 },
             )
         });
@@ -469,6 +550,7 @@ mod tests {
                     home: Some(String::from("/some/home/path")),
                     venv: None,
                     direnv: Some((String::from("/some/direnv"), true)),
+                    nixshell: None,
                 },
             )
         });
@@ -485,6 +567,48 @@ mod tests {
             " ",
             symbol!(div thin),
             " direnv ",
+            style!(fg = color!(black), bg = color!(blue), symbol!(div)),
+            style!(fg = color!(black)),
+            " ~/further/on ",
+            style!(fg = color!(blue), bg = color!(reset), symbol!(div)),
+            style!(fg = color!(reset)),
+            " "
+        );
+        println!("{result}");
+        println!("{expected}");
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn nixshell() {
+        let result = test(|s| {
+            render_inner(
+                s,
+                Some(String::from("[31mH")),
+                true,
+                true,
+                &MockEnv {
+                    pwd: Some(std::path::PathBuf::from("/some/home/path/further/on")),
+                    home: Some(String::from("/some/home/path")),
+                    venv: None,
+                    direnv: None,
+                    nixshell: Some(String::from("pkg1 pkg2")),
+                },
+            )
+        });
+        let expected = concat!(
+            style!(fg = color!(red), bg = color!(black)),
+            " ",
+            symbol!(error),
+            " ",
+            style!(fg = color!(cyan), symbol!(jobs)),
+            " ",
+            style!(fg = color!(reset), style!(fg = color!(red), "H")),
+            style!(reset to bg = color!(black)),
+            style!(fg = color!(yellow)),
+            " ",
+            symbol!(div thin),
+            " pkg1 pkg2 ",
             style!(fg = color!(black), bg = color!(blue), symbol!(div)),
             style!(fg = color!(black)),
             " ~/further/on ",
