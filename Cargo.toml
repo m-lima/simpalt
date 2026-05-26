@@ -10,7 +10,7 @@ chrono = { version = "0.4.44", default-features = false, features = [
   "std",
 ] }
 flate2 = "1.1.9"
-git2 = "0.20.4"
+git2 = "0.21.0"
 simd-json = { version = "0.17.0", default-features = false, features = [
   "swar-number-parsing",
   "runtime-detection",

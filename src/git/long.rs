@@ -64,7 +64,7 @@ pub fn parse(path: &std::path::PathBuf) -> Repo {
     };
 
     let head = head.shorthand().map_or_else(
-        || String::from("??"),
+        |_| String::from("??"),
         |short| {
             short
                 .eq("HEAD")
