@@ -27,8 +27,16 @@ where
     }
 
     if jobs {
-        out.div(&mut last, color!(black), color!(cyan))?;
+        out.div(&mut last, color!(black), color!(magenta))?;
         write!(out, symbol!(jobs))?;
+    }
+
+    let direnv = enver.direnv();
+    let nixshell = enver.nixshell();
+
+    if nixshell == Nixshell::Generic && !matches!(direnv, Some((_, true))) {
+        out.div(&mut last, color!(black), color!(cyan))?;
+        write!(out, symbol!(flake))?;
     }
 
     if let Some(host) = host {
@@ -37,24 +45,17 @@ where
         write!(out, style!(reset to bg = color!(black)))?;
     }
 
-    if let Some(nixshell) = enver.nixshell() {
-        write!(
-            out,
-            style!(
-                fg = color!(yellow),
-                concat!(" ", symbol!(div thin), " {nixshell}")
-            ),
-            nixshell = nixshell
-        )?;
+    if let Nixshell::Package(pkg) = nixshell {
+        out.div(&mut last, color!(yellow), color!(black))?;
+        write!(out, "{pkg}")?;
     }
 
-    if let Some((direnv, active)) = enver.direnv() {
+    if let Some((direnv, active)) = direnv {
         if active {
-            write!(out, style!(fg = color!(green)))?;
+            out.div(&mut last, color!(black), color!(green))?;
         } else {
-            write!(out, style!(fg = color!(blue)))?;
+            out.div(&mut last, color!(black), color!(red))?;
         }
-        write!(out, concat!(" ", symbol!(div thin), " "))?;
         if let Some(direnv) = direnv.rsplit(std::path::MAIN_SEPARATOR).next() {
             write!(out, "{direnv}")?;
         } else {
@@ -249,12 +250,20 @@ const fn pending_symbol(pending: git::Pending) -> &'static str {
     }
 }
 
+#[derive(Default, Debug, Clone, PartialEq)]
+enum Nixshell {
+    #[default]
+    None,
+    Generic,
+    Package(String),
+}
+
 trait EnvFetcher {
     fn pwd(&self) -> Option<std::path::PathBuf>;
     fn home(&self) -> Option<String>;
     fn venv(&self) -> Option<String>;
     fn direnv(&self) -> Option<(String, bool)>;
-    fn nixshell(&self) -> Option<String>;
+    fn nixshell(&self) -> Nixshell;
 }
 
 #[derive(Copy, Clone)]
@@ -281,8 +290,14 @@ impl EnvFetcher for SysEnv {
             .map(|d| (d, super::direnv::is_active().unwrap_or(false)))
     }
 
-    fn nixshell(&self) -> Option<String> {
-        std::env::var("NIX_SHELL").ok()
+    fn nixshell(&self) -> Nixshell {
+        match std::env::var("NIX_SHELL") {
+            Ok(pkg) => Nixshell::Package(pkg),
+            Err(_) => match std::env::var("IN_NIX_SHELL") {
+                Ok(_) => Nixshell::Generic,
+                Err(_) => Nixshell::None,
+            },
+        }
     }
 }
 
@@ -297,7 +312,7 @@ mod tests {
         home: Option<String>,
         venv: Option<String>,
         direnv: Option<(String, bool)>,
-        nixshell: Option<String>,
+        nixshell: Nixshell,
     }
 
     impl EnvFetcher for MockEnv {
@@ -317,7 +332,7 @@ mod tests {
             self.direnv.clone()
         }
 
-        fn nixshell(&self) -> Option<String> {
+        fn nixshell(&self) -> Nixshell {
             self.nixshell.clone()
         }
     }
@@ -417,7 +432,7 @@ mod tests {
                     home: Some(String::from("/some/home/path")),
                     venv: Some(String::from("py")),
                     direnv: Some((String::from("/some/direnv"), false)),
-                    nixshell: Some(String::from("pkg1 pkg2")),
+                    nixshell: Nixshell::Package(String::from("pkg1 pkg2")),
                 },
             )
         });
@@ -426,17 +441,16 @@ mod tests {
             " ",
             symbol!(error),
             " ",
-            style!(fg = color!(cyan), symbol!(jobs)),
+            style!(fg = color!(magenta), symbol!(jobs)),
             " ",
             style!(fg = color!(reset), style!(fg = color!(red), "H")),
             style!(reset to bg = color!(black)),
-            style!(fg = color!(yellow)),
             " ",
-            symbol!(div thin),
-            " pkg1 pkg2",
-            style!(fg = color!(blue)),
-            " ",
-            symbol!(div thin),
+            style!(fg = color!(black), bg = color!(yellow), symbol!(div)),
+            style!(fg = color!(black)),
+            " pkg1 pkg2 ",
+            style!(fg = color!(yellow), bg = color!(black), symbol!(div)),
+            style!(fg = color!(red)),
             " direnv ",
             style!(fg = color!(black), bg = color!(cyan), symbol!(div)),
             style!(fg = color!(black)),
@@ -466,7 +480,7 @@ mod tests {
                     home: Some(String::from("/some/home/path")),
                     venv: Some(String::from("py")),
                     direnv: None,
-                    nixshell: None,
+                    nixshell: Nixshell::None,
                 },
             )
         });
@@ -475,7 +489,7 @@ mod tests {
             " ",
             symbol!(error),
             " ",
-            style!(fg = color!(cyan), symbol!(jobs)),
+            style!(fg = color!(magenta), symbol!(jobs)),
             " ",
             style!(fg = color!(reset), style!(fg = color!(red), "H")),
             style!(reset to bg = color!(black)),
@@ -496,7 +510,7 @@ mod tests {
     }
 
     #[test]
-    fn direnv() {
+    fn direnv_inactive() {
         let result = test(|s| {
             render_inner(
                 s,
@@ -508,7 +522,7 @@ mod tests {
                     home: Some(String::from("/some/home/path")),
                     venv: None,
                     direnv: Some((String::from("/some/direnv"), false)),
-                    nixshell: None,
+                    nixshell: Nixshell::None,
                 },
             )
         });
@@ -517,14 +531,13 @@ mod tests {
             " ",
             symbol!(error),
             " ",
-            style!(fg = color!(cyan), symbol!(jobs)),
+            style!(fg = color!(magenta), symbol!(jobs)),
             " ",
             style!(fg = color!(reset), style!(fg = color!(red), "H")),
             style!(reset to bg = color!(black)),
-            style!(fg = color!(blue)),
             " ",
-            symbol!(div thin),
-            " direnv ",
+            style!(fg = color!(red)),
+            "direnv ",
             style!(fg = color!(black), bg = color!(blue), symbol!(div)),
             style!(fg = color!(black)),
             " ~/further/on ",
@@ -550,7 +563,7 @@ mod tests {
                     home: Some(String::from("/some/home/path")),
                     venv: None,
                     direnv: Some((String::from("/some/direnv"), true)),
-                    nixshell: None,
+                    nixshell: Nixshell::Generic,
                 },
             )
         });
@@ -559,13 +572,224 @@ mod tests {
             " ",
             symbol!(error),
             " ",
-            style!(fg = color!(cyan), symbol!(jobs)),
+            style!(fg = color!(magenta), symbol!(jobs)),
             " ",
             style!(fg = color!(reset), style!(fg = color!(red), "H")),
             style!(reset to bg = color!(black)),
-            style!(fg = color!(green)),
             " ",
-            symbol!(div thin),
+            style!(fg = color!(green)),
+            "direnv ",
+            style!(fg = color!(black), bg = color!(blue), symbol!(div)),
+            style!(fg = color!(black)),
+            " ~/further/on ",
+            style!(fg = color!(blue), bg = color!(reset), symbol!(div)),
+            style!(fg = color!(reset)),
+            " "
+        );
+        println!("{result}");
+        println!("{expected}");
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn nixshell_generic() {
+        let result = test(|s| {
+            render_inner(
+                s,
+                Some(String::from("[31mH")),
+                true,
+                true,
+                &MockEnv {
+                    pwd: Some(std::path::PathBuf::from("/some/home/path/further/on")),
+                    home: Some(String::from("/some/home/path")),
+                    venv: None,
+                    direnv: None,
+                    nixshell: Nixshell::Generic,
+                },
+            )
+        });
+        let expected = concat!(
+            style!(fg = color!(red), bg = color!(black)),
+            " ",
+            symbol!(error),
+            " ",
+            style!(fg = color!(magenta), symbol!(jobs)),
+            " ",
+            style!(fg = color!(cyan), symbol!(flake)),
+            " ",
+            style!(fg = color!(reset), style!(fg = color!(red), "H")),
+            style!(reset to bg = color!(black)),
+            " ",
+            style!(fg = color!(black), bg = color!(blue), symbol!(div)),
+            style!(fg = color!(black)),
+            " ~/further/on ",
+            style!(fg = color!(blue), bg = color!(reset), symbol!(div)),
+            style!(fg = color!(reset)),
+            " "
+        );
+        println!("{result}");
+        println!("{expected}");
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn nixshell_package() {
+        let result = test(|s| {
+            render_inner(
+                s,
+                Some(String::from("[31mH")),
+                true,
+                true,
+                &MockEnv {
+                    pwd: Some(std::path::PathBuf::from("/some/home/path/further/on")),
+                    home: Some(String::from("/some/home/path")),
+                    venv: None,
+                    direnv: None,
+                    nixshell: Nixshell::Package(String::from("pkg1 pkg2")),
+                },
+            )
+        });
+        let expected = concat!(
+            style!(fg = color!(red), bg = color!(black)),
+            " ",
+            symbol!(error),
+            " ",
+            style!(fg = color!(magenta), symbol!(jobs)),
+            " ",
+            style!(fg = color!(reset), style!(fg = color!(red), "H")),
+            style!(reset to bg = color!(black)),
+            " ",
+            style!(fg = color!(black), bg = color!(yellow), symbol!(div)),
+            style!(fg = color!(black)),
+            " pkg1 pkg2 ",
+            style!(fg = color!(yellow), bg = color!(blue), symbol!(div)),
+            style!(fg = color!(black)),
+            " ~/further/on ",
+            style!(fg = color!(blue), bg = color!(reset), symbol!(div)),
+            style!(fg = color!(reset)),
+            " "
+        );
+        println!("{result}");
+        println!("{expected}");
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn nixshell_generic_direnv_active() {
+        let result = test(|s| {
+            render_inner(
+                s,
+                Some(String::from("[31mH")),
+                true,
+                true,
+                &MockEnv {
+                    pwd: Some(std::path::PathBuf::from("/some/home/path/further/on")),
+                    home: Some(String::from("/some/home/path")),
+                    venv: None,
+                    direnv: Some((String::from("/some/direnv"), true)),
+                    nixshell: Nixshell::Generic,
+                },
+            )
+        });
+        let expected = concat!(
+            style!(fg = color!(red), bg = color!(black)),
+            " ",
+            symbol!(error),
+            " ",
+            style!(fg = color!(magenta), symbol!(jobs)),
+            " ",
+            style!(fg = color!(reset), style!(fg = color!(red), "H")),
+            style!(reset to bg = color!(black)),
+            " ",
+            style!(fg = color!(green)),
+            "direnv ",
+            style!(fg = color!(black), bg = color!(blue), symbol!(div)),
+            style!(fg = color!(black)),
+            " ~/further/on ",
+            style!(fg = color!(blue), bg = color!(reset), symbol!(div)),
+            style!(fg = color!(reset)),
+            " "
+        );
+        println!("{result}");
+        println!("{expected}");
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn nixshell_generic_direnv_inactive() {
+        let result = test(|s| {
+            render_inner(
+                s,
+                Some(String::from("[31mH")),
+                true,
+                true,
+                &MockEnv {
+                    pwd: Some(std::path::PathBuf::from("/some/home/path/further/on")),
+                    home: Some(String::from("/some/home/path")),
+                    venv: None,
+                    direnv: Some((String::from("/some/direnv"), false)),
+                    nixshell: Nixshell::Generic,
+                },
+            )
+        });
+        let expected = concat!(
+            style!(fg = color!(red), bg = color!(black)),
+            " ",
+            symbol!(error),
+            " ",
+            style!(fg = color!(magenta), symbol!(jobs)),
+            " ",
+            style!(fg = color!(cyan), symbol!(flake)),
+            " ",
+            style!(fg = color!(reset), style!(fg = color!(red), "H")),
+            style!(reset to bg = color!(black)),
+            " ",
+            style!(fg = color!(red)),
+            "direnv ",
+            style!(fg = color!(black), bg = color!(blue), symbol!(div)),
+            style!(fg = color!(black)),
+            " ~/further/on ",
+            style!(fg = color!(blue), bg = color!(reset), symbol!(div)),
+            style!(fg = color!(reset)),
+            " "
+        );
+        println!("{result}");
+        println!("{expected}");
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn nixshell_package_direnv_active() {
+        let result = test(|s| {
+            render_inner(
+                s,
+                Some(String::from("[31mH")),
+                true,
+                true,
+                &MockEnv {
+                    pwd: Some(std::path::PathBuf::from("/some/home/path/further/on")),
+                    home: Some(String::from("/some/home/path")),
+                    venv: None,
+                    direnv: Some((String::from("/some/direnv"), true)),
+                    nixshell: Nixshell::Package(String::from("pkg1 pkg2")),
+                },
+            )
+        });
+        let expected = concat!(
+            style!(fg = color!(red), bg = color!(black)),
+            " ",
+            symbol!(error),
+            " ",
+            style!(fg = color!(magenta), symbol!(jobs)),
+            " ",
+            style!(fg = color!(reset), style!(fg = color!(red), "H")),
+            style!(reset to bg = color!(black)),
+            " ",
+            style!(fg = color!(black), bg = color!(yellow), symbol!(div)),
+            style!(fg = color!(black)),
+            " pkg1 pkg2 ",
+            style!(fg = color!(yellow), bg = color!(black), symbol!(div)),
+            style!(fg = color!(green)),
             " direnv ",
             style!(fg = color!(black), bg = color!(blue), symbol!(div)),
             style!(fg = color!(black)),
@@ -580,7 +804,7 @@ mod tests {
     }
 
     #[test]
-    fn nixshell() {
+    fn nixshell_package_direnv_inactive() {
         let result = test(|s| {
             render_inner(
                 s,
@@ -591,8 +815,8 @@ mod tests {
                     pwd: Some(std::path::PathBuf::from("/some/home/path/further/on")),
                     home: Some(String::from("/some/home/path")),
                     venv: None,
-                    direnv: None,
-                    nixshell: Some(String::from("pkg1 pkg2")),
+                    direnv: Some((String::from("/some/direnv"), false)),
+                    nixshell: Nixshell::Package(String::from("pkg1 pkg2")),
                 },
             )
         });
@@ -601,14 +825,17 @@ mod tests {
             " ",
             symbol!(error),
             " ",
-            style!(fg = color!(cyan), symbol!(jobs)),
+            style!(fg = color!(magenta), symbol!(jobs)),
             " ",
             style!(fg = color!(reset), style!(fg = color!(red), "H")),
             style!(reset to bg = color!(black)),
-            style!(fg = color!(yellow)),
             " ",
-            symbol!(div thin),
+            style!(fg = color!(black), bg = color!(yellow), symbol!(div)),
+            style!(fg = color!(black)),
             " pkg1 pkg2 ",
+            style!(fg = color!(yellow), bg = color!(black), symbol!(div)),
+            style!(fg = color!(red)),
+            " direnv ",
             style!(fg = color!(black), bg = color!(blue), symbol!(div)),
             style!(fg = color!(black)),
             " ~/further/on ",

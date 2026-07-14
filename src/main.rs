@@ -75,6 +75,9 @@ macro_rules! symbol {
     (direnv) => {
         ""
     };
+    (flake) => {
+        "󱄅"
+    };
     (python) => {
         "󰌠"
     };

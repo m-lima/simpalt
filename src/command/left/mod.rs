@@ -1,5 +1,6 @@
 mod direnv;
 mod long;
+// mod nixshell;
 mod short;
 
 use super::Compat;
