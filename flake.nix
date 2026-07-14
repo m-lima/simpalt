@@ -42,7 +42,7 @@
           checks = {
             glue = pkgs.runCommand "checkglue" { src = ./.; } ''
               ${pkgs.coreutils}/bin/touch $out
-              VERSION=$(${pkgs.dasel}/bin/dasel -f $src/Cargo.toml -r toml '.package.version' | ${pkgs.coreutils}/bin/tr -d "'")
+              VERSION=$(${pkgs.dasel}/bin/dasel query 'package.version' -i toml -o yaml < $src/Cargo.toml)
               ZSH=$(${pkgs.gnused}/bin/sed 's/%%VERSION%%/'"$VERSION"'/g' $src/loader/simpalt.zsh)
               NU=$(${pkgs.gnused}/bin/sed 's/%%VERSION%%/'"$VERSION"'/g' $src/loader/simpalt.nu)
               echo Checking version presence

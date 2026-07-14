@@ -34,7 +34,7 @@ where
     writeln!(out, "  -w<SUB> Replace black background with SUB")?;
     writeln!(out)?;
     writeln!(out, "Arguments for `l` command:")?;
-    writeln!(out, "  HOST    Symbol to be used as host (can be escaped)",)?;
+    writeln!(out, "  HOST    Symbol to be used as host (can be escaped)")?;
     writeln!(out, "  -e      Last command was an error")?;
     writeln!(out, "  -j      There are background processes running")?;
     writeln!(out, "  -l      Use the long format")?;
@@ -42,5 +42,5 @@ where
     writeln!(out, "  -w<SUB> Replace black background with SUB")?;
     writeln!(out)?;
     writeln!(out, "Arguments for `t` command:")?;
-    writeln!(out, "  PWD     Working directory for command",)
+    writeln!(out, "  PWD     Working directory for command")
 }
