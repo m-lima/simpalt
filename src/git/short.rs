@@ -31,11 +31,15 @@ pub fn parse(path: &std::path::Path) -> Repo {
         Ok(head) => head,
         Err(e) => {
             return match e.code() {
-                git2::ErrorCode::UnbornBranch => Repo::Untracked,
+                git2::ErrorCode::UnbornBranch | git2::ErrorCode::NotFound => Repo::Untracked,
                 _ => Repo::Error,
             };
         }
     };
+
+    if !head.is_branch() {
+        return Repo::Detached;
+    }
 
     let Some(head_oid) = head.target() else {
         return Repo::Error;
@@ -44,9 +48,8 @@ pub fn parse(path: &std::path::Path) -> Repo {
     let upstream = match git2::Branch::wrap(head).upstream() {
         Ok(upstream) => upstream,
         Err(e) => {
-            return match (e.code(), e.class()) {
-                (git2::ErrorCode::NotFound, _) => repo_state(&repo, Sync::Local),
-                (git2::ErrorCode::GenericError, git2::ErrorClass::Invalid) => Repo::Detached,
+            return match e.code() {
+                git2::ErrorCode::NotFound => repo_state(&repo, Sync::Local),
                 _ => Repo::Error,
             };
         }

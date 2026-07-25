@@ -59,11 +59,17 @@ pub fn parse(path: &std::path::Path) -> Repo {
         return Repo::Error;
     };
 
-    let Ok(head) = repo.head() else {
-        return Repo::New(changes);
+    let head = match repo.head() {
+        Ok(head) => head,
+        Err(e) => {
+            return match e.code() {
+                git2::ErrorCode::UnbornBranch | git2::ErrorCode::NotFound => Repo::New(changes),
+                _ => Repo::Error,
+            };
+        }
     };
 
-    let head = head.shorthand().map_or_else(
+    let name = head.shorthand().map_or_else(
         |_| String::from("??"),
         |short| {
             short
@@ -75,67 +81,62 @@ pub fn parse(path: &std::path::Path) -> Repo {
         },
     );
 
+    if !head.is_branch() {
+        return Repo::Detached(name, changes);
+    }
+
     match repo.state() {
-        git2::RepositoryState::Merge => return Repo::Pending(head, Pending::Merge, changes),
+        git2::RepositoryState::Merge => return Repo::Pending(name, Pending::Merge, changes),
         git2::RepositoryState::Revert | git2::RepositoryState::RevertSequence => {
-            return Repo::Pending(head, Pending::Revert, changes);
+            return Repo::Pending(name, Pending::Revert, changes);
         }
         git2::RepositoryState::CherryPick | git2::RepositoryState::CherryPickSequence => {
-            return Repo::Pending(head, Pending::Cherry, changes);
+            return Repo::Pending(name, Pending::Cherry, changes);
         }
-        git2::RepositoryState::Bisect => return Repo::Pending(head, Pending::Bisect, changes),
+        git2::RepositoryState::Bisect => return Repo::Pending(name, Pending::Bisect, changes),
         git2::RepositoryState::Rebase
         | git2::RepositoryState::RebaseInteractive
         | git2::RepositoryState::RebaseMerge => {
-            return Repo::Pending(head, Pending::Rebase, changes);
+            return Repo::Pending(name, Pending::Rebase, changes);
         }
         git2::RepositoryState::ApplyMailbox | git2::RepositoryState::ApplyMailboxOrRebase => {
-            return Repo::Pending(head, Pending::Mailbox, changes);
+            return Repo::Pending(name, Pending::Mailbox, changes);
         }
         git2::RepositoryState::Clean => {}
     }
 
-    let sync = match repo.revparse("HEAD..@{upstream}").and_then(|behind| {
-        repo.revparse("@{upstream}..HEAD")
-            .map(|ahead| get_sync(&repo, &behind, &ahead))
-    }) {
-        Ok(Some(sync)) => sync,
-        Ok(None) => return Repo::Error,
-        Err(e) => match e.code() {
-            git2::ErrorCode::NotFound => match e.class() {
-                git2::ErrorClass::Config => Sync::Local,
-                git2::ErrorClass::Reference => Sync::Gone,
-                _ => return Repo::Error,
-            },
-            git2::ErrorCode::InvalidSpec => return Repo::Detached(head, changes),
-            _ => return Repo::Error,
-        },
+    let Some(head_oid) = head.target() else {
+        return Repo::Error;
     };
 
-    Repo::Regular(head, sync, changes)
-}
+    let head_branch = git2::Branch::wrap(head);
+    let upstream = match head_branch.upstream() {
+        Ok(upstream) => upstream,
+        Err(e) => {
+            if head_branch
+                .get()
+                .name()
+                .and_then(|r| repo.branch_upstream_remote(r))
+                .is_err()
+            {
+                return Repo::Regular(name, Sync::Local, changes);
+            }
+            return match e.code() {
+                git2::ErrorCode::NotFound => Repo::Regular(name, Sync::Gone, changes),
+                _ => Repo::Error,
+            };
+        }
+    };
 
-fn walk(walker: &mut git2::Revwalk<'_>, rev: &git2::Revspec<'_>) -> Option<usize> {
-    let to = rev.to()?;
-    let from = rev.from()?;
-    walker.hide(from.id()).ok()?;
-    walker.push(to.id()).ok()?;
+    let Some(upstream_oid) = upstream.get().target() else {
+        return Repo::Error;
+    };
 
-    Some(walker.take_while(Result::is_ok).count())
-}
+    let Ok((ahead, behind)) = repo.graph_ahead_behind(head_oid, upstream_oid) else {
+        return Repo::Error;
+    };
 
-fn get_sync(
-    repo: &git2::Repository,
-    behind: &git2::Revspec<'_>,
-    ahead: &git2::Revspec<'_>,
-) -> Option<Sync> {
-    let mut walker = repo.revwalk().ok()?;
-
-    let behind = walk(&mut walker, behind)?;
-    walker.reset().ok()?;
-    let ahead = walk(&mut walker, ahead)?;
-
-    Some(Sync::Tracked { ahead, behind })
+    Repo::Regular(name, Sync::Tracked { ahead, behind }, changes)
 }
 
 fn get_changes(repo: &git2::Repository) -> Option<Changes> {
