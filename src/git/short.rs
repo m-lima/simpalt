@@ -27,64 +27,56 @@ pub fn parse(path: &std::path::Path) -> Repo {
         return Repo::Pending;
     }
 
-    let sync = match repo.revparse("HEAD..@{upstream}").and_then(|behind| {
-        repo.revparse("@{upstream}..HEAD")
-            .map(|ahead| get_sync(&repo, &behind, &ahead))
-    }) {
-        Ok(Some(sync)) => sync,
-        Ok(None) => return Repo::Error,
-        Err(e) => match e.code() {
-            git2::ErrorCode::NotFound => match e.class() {
-                git2::ErrorClass::Config => Sync::Local,
-                git2::ErrorClass::Reference => return Repo::Untracked,
-                _ => return Repo::Error,
-            },
-            git2::ErrorCode::InvalidSpec => return Repo::Detached,
-            _ => return Repo::Error,
-        },
+    let head = match repo.head() {
+        Ok(head) => head,
+        Err(e) => {
+            return match e.code() {
+                git2::ErrorCode::UnbornBranch => Repo::Untracked,
+                _ => Repo::Error,
+            };
+        }
     };
 
-    let Ok(status) = repo.statuses(Some(
-        git2::StatusOptions::new()
-            .include_ignored(false)
-            .include_untracked(true),
-    )) else {
+    let Some(head_oid) = head.target() else {
         return Repo::Error;
     };
 
-    if status.iter().next().is_some() {
-        Repo::Dirty(sync)
-    } else {
-        Repo::Clean(sync)
+    let upstream = match git2::Branch::wrap(head).upstream() {
+        Ok(upstream) => upstream,
+        Err(e) => {
+            return match (e.code(), e.class()) {
+                (git2::ErrorCode::NotFound, _) => repo_state(&repo, Sync::Local),
+                (git2::ErrorCode::GenericError, git2::ErrorClass::Invalid) => Repo::Detached,
+                _ => Repo::Error,
+            };
+        }
+    };
+
+    let Some(upstream_oid) = upstream.get().target() else {
+        return Repo::Error;
+    };
+
+    let sync = match repo.graph_ahead_behind(head_oid, upstream_oid) {
+        Ok((1.., 1..)) => Sync::Diverged,
+        Ok((1.., _)) => Sync::Ahead,
+        Ok((_, 1..)) => Sync::Behind,
+        Ok(_) => Sync::UpToDate,
+        Err(_) => return Repo::Error,
+    };
+
+    repo_state(&repo, sync)
+}
+
+fn repo_state(repo: &git2::Repository, sync: Sync) -> Repo {
+    match repo.statuses(Some(
+        git2::StatusOptions::new()
+            .include_ignored(false)
+            .include_untracked(true),
+    )) {
+        Ok(status) if status.is_empty() => Repo::Clean(sync),
+        Ok(_) => Repo::Dirty(sync),
+        Err(_) => Repo::Error,
     }
-}
-
-fn walk(walker: &mut git2::Revwalk<'_>, rev: &git2::Revspec<'_>) -> Option<bool> {
-    let to = rev.to()?;
-    let from = rev.from()?;
-    walker.hide(from.id()).ok()?;
-    walker.push(to.id()).ok()?;
-
-    Some(walker.take_while(Result::is_ok).next().is_some())
-}
-
-fn get_sync(
-    repo: &git2::Repository,
-    behind: &git2::Revspec<'_>,
-    ahead: &git2::Revspec<'_>,
-) -> Option<Sync> {
-    let mut walker = repo.revwalk().ok()?;
-
-    let behind = walk(&mut walker, behind)?;
-    walker.reset().ok()?;
-    let ahead = walk(&mut walker, ahead)?;
-
-    Some(match (behind, ahead) {
-        (false, false) => Sync::UpToDate,
-        (true, false) => Sync::Behind,
-        (false, true) => Sync::Ahead,
-        (true, true) => Sync::Diverged,
-    })
 }
 
 #[cfg(test)]
