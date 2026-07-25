@@ -1,10 +1,10 @@
 [package]
 name = "simpalt"
-version = "0.3.13"
+version = "0.3.14"
 edition = "2024"
 
 [dependencies]
-base64 = "0.22.1"
+base64 = "0.23.0"
 chrono = { version = "0.4.45", default-features = false, features = [
   "clock",
   "std",
@@ -17,5 +17,5 @@ simd-json = { version = "0.17.3", default-features = false, features = [
 ] }
 
 [dev-dependencies]
-regex = "1.13.0"
+regex = "1.13.1"
 tempfile = "3.27.0"

@@ -94,7 +94,7 @@ where
 
 fn render_git<Out>(
     out: &mut Out,
-    pwd: &std::path::PathBuf,
+    pwd: &std::path::Path,
     mut last: Option<&'static str>,
 ) -> Result<Option<&'static str>>
 where
