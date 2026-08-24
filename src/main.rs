@@ -1,5 +1,7 @@
 #![deny(warnings, rust_2018_idioms, clippy::pedantic)]
 
+mod print;
+
 macro_rules! style {
     (reset $(, $($param: expr),*)?) => {
         concat!("[m" $(, $($param),*)?)
