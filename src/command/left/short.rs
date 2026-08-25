@@ -1,100 +1,83 @@
 use crate::Result;
 use crate::git::short as git;
+use crate::print::{Color, Printer, Symbol};
 
 macro_rules! chevron {
-    ($color: expr) => {
-        concat!(
-            style!(fg = color!(black), bg = $color, symbol!(div)),
-            style!(reset to fg = $color, symbol!(div)),
-        )
+    ($printer: ident, $color: ident) => {
+        $printer
+            .div(crate::print::Div::ChevronLeft, crate::print::Color::$color)?
+            .div(crate::print::Div::ChevronLeft, crate::print::Color::Reset)?
     };
 }
 
-pub fn render<Out>(out: Out, host: Option<String>, error: bool, jobs: bool) -> Result
+pub fn render<P>(printer: P, host: Option<String>, error: bool, jobs: bool) -> Result
 where
-    Out: std::io::Write,
+    P: Printer,
 {
-    render_inner(out, host, error, jobs, &SysEnv)
+    render_inner(printer, host, error, jobs, &SysEnv)
 }
 
-fn render_inner<Out, Env>(
-    mut out: Out,
+fn render_inner<P, Env>(
+    mut printer: P,
     host: Option<String>,
     error: bool,
     jobs: bool,
     enver: &Env,
 ) -> Result
 where
-    Out: std::io::Write,
+    P: Printer,
     Env: EnvFetcher,
 {
-    write!(out, style!(reset to bg = color!(black), " "))?;
-    let mut should_recolor = false;
+    printer.fg(Color::Reset).bg(Color::Black).txt(" ")?;
 
     if error {
-        write!(out, style!(fg = color!(red), symbol!(error), " "))?;
-        should_recolor = true;
+        printer.fg(Color::Red).txt(Symbol::Error)?.txt(" ")?;
     }
 
     if jobs {
-        write!(out, style!(fg = color!(cyan), symbol!(jobs), " "))?;
-        should_recolor = true;
+        printer.fg(Color::Magenta).txt(Symbol::Jobs)?.txt(" ")?;
     }
 
     let direnv = enver.direnv();
     if let Some(nixshell) = enver.nixshell()
         && (nixshell || !matches!(direnv, Some(true)))
     {
-        write!(out, style!(fg = color!(yellow), symbol!(pkg), " "))?;
-        should_recolor = true;
+        printer.fg(Color::Yellow).txt(Symbol::Package)?.txt(" ")?;
     }
 
     if let Some(active) = direnv {
         if active {
-            write!(out, style!(fg = color!(green), symbol!(direnv), " "))?;
+            printer.fg(Color::Green)
         } else {
-            write!(out, style!(fg = color!(red), symbol!(direnv), " "))?;
+            printer.fg(Color::Red)
         }
-        should_recolor = true;
+        .txt(Symbol::Direnv)?
+        .txt(" ")?;
     }
 
     if enver.venv() {
-        write!(out, style!(fg = color!(green), symbol!(python), " "))?;
-        should_recolor = true;
+        printer.fg(Color::Green).txt(Symbol::Python)?.txt(" ")?;
     }
 
     if let Some(host) = host {
-        if should_recolor {
-            write!(out, style!(fg = color!(reset), "{host}"), host = host)?;
-            should_recolor = false;
-        } else {
-            write!(out, "{host}")?;
-        }
-        write!(out, style!(reset to bg = color!(black), " "))?;
+        printer
+            .fg(Color::Reset)
+            .txt(&host)?
+            .fg(Color::Reset)
+            .bg(Color::Black)
+            .txt(" ")?;
     }
 
     let pwd = enver.pwd();
 
     if let Some(ref pwd) = pwd {
-        if should_recolor {
-            write!(
-                out,
-                style!(fg = color!(reset), "{pwd} "),
-                pwd = pwd_string(pwd, enver)
-            )?;
-        } else {
-            write!(out, "{pwd} ", pwd = pwd_string(pwd, enver))?;
-        }
-    }
-
-    if let Some(ref pwd) = pwd {
-        out.git(git::parse(pwd))?;
+        printer.txt(pwd_string(pwd, enver))?;
+        render_git(&mut printer, git::parse(pwd))?;
     } else {
-        write!(out, chevron!(color!(blue)))?;
+        chevron!(printer, Blue);
     }
 
-    write!(out, style!(reset, " "))?;
-    out.flush()
+    printer.fg(Color::Reset).bg(Color::Reset).txt(" ")?.flush()
 }
 
 fn pwd_string(path: &std::path::PathBuf, enver: &impl EnvFetcher) -> String {
@@ -128,52 +111,49 @@ fn pwd_string(path: &std::path::PathBuf, enver: &impl EnvFetcher) -> String {
     }
 }
 
-trait Writer {
-    fn git(&mut self, repo: git::Repo) -> Result;
-}
-
-impl<W: std::io::Write> Writer for W {
-    fn git(&mut self, repo: git::Repo) -> Result {
-        macro_rules! branch {
-            (none $color: expr) => {
-                write!(self, chevron!($color))
+fn render_git<P>(printer: &mut P, repo: git::Repo) -> Result
+where
+    P: Printer,
+{
+    match repo {
+        git::Repo::None => chevron!(printer, Blue),
+        git::Repo::Clean(sync) => {
+            match sync {
+                git::Sync::UpToDate => printer.fg(Color::Reset),
+                git::Sync::Behind => printer.fg(Color::Red),
+                git::Sync::Ahead => printer.fg(Color::Yellow),
+                git::Sync::Diverged => printer.fg(Color::Magenta),
+                git::Sync::Local => printer.fg(Color::Blue),
             };
-            (warn $color: expr) => {
-                write!(self, concat!(symbol!(warn), chevron!($color)))
-            };
-            ($branch: expr, $color: expr) => {
-                write!(
-                    self,
-                    style!(fg = $branch, symbol!(branch), chevron!($color))
-                )
-            };
-            ($color: expr) => {
-                write!(self, concat!(symbol!(branch), chevron!($color)))
-            };
+            printer.txt(Symbol::Branch)?;
+            chevron!(printer, Green)
         }
-
-        match repo {
-            git::Repo::None => branch!(none color!(blue)),
-            git::Repo::Clean(sync) => match sync {
-                git::Sync::UpToDate => branch!(color!(green)),
-                git::Sync::Behind => branch!(color!(red), color!(green)),
-                git::Sync::Ahead => branch!(color!(yellow), color!(green)),
-                git::Sync::Diverged => branch!(color!(magenta), color!(green)),
-                git::Sync::Local => branch!(color!(blue), color!(green)),
-            },
-            git::Repo::Dirty(sync) => match sync {
-                git::Sync::UpToDate => branch!(color!(yellow)),
-                git::Sync::Behind => branch!(color!(red), color!(yellow)),
-                git::Sync::Ahead => branch!(color!(yellow), color!(yellow)),
-                git::Sync::Diverged => branch!(color!(magenta), color!(yellow)),
-                git::Sync::Local => branch!(color!(blue), color!(yellow)),
-            },
-            git::Repo::Pending => branch!(warn color!(cyan)),
-            git::Repo::Untracked => branch!(color!(cyan)),
-            git::Repo::Detached => branch!(color!(magenta)),
-            git::Repo::Error => branch!(none color!(red)),
+        git::Repo::Dirty(sync) => {
+            match sync {
+                git::Sync::UpToDate => printer.fg(Color::Reset),
+                git::Sync::Behind => printer.fg(Color::Red),
+                git::Sync::Ahead => printer.fg(Color::Yellow),
+                git::Sync::Diverged => printer.fg(Color::Magenta),
+                git::Sync::Local => printer.fg(Color::Blue),
+            };
+            printer.txt(Symbol::Branch)?;
+            chevron!(printer, Yellow)
         }
-    }
+        git::Repo::Detached => {
+            printer.txt(Symbol::Warn)?;
+            chevron!(printer, Cyan)
+        }
+        git::Repo::Pending => {
+            printer.txt(Symbol::Branch)?;
+            chevron!(printer, Cyan)
+        }
+        git::Repo::Untracked => {
+            printer.txt(Symbol::Branch)?;
+            chevron!(printer, Magenta)
+        }
+        git::Repo::Error => chevron!(printer, Red),
+    };
+    Ok(())
 }
 
 trait EnvFetcher {
@@ -217,6 +197,15 @@ impl EnvFetcher for SysEnv {
 mod tests {
     use super::*;
     use crate::test;
+
+    macro_rules! chevron {
+        ($color: expr) => {
+            concat!(
+                style!(fg = color!(black), bg = $color, symbol!(div)),
+                style!(reset to fg = $color, symbol!(div)),
+            )
+        };
+    }
 
     macro_rules! branch {
         () => {
@@ -760,23 +749,23 @@ mod tests {
     #[test]
     fn git_sync_clean() {
         assert_eq!(
-            test(|s| s.git(git::Repo::Clean(git::Sync::Behind))),
+            test(|mut s| render_git(&mut s, git::Repo::Clean(git::Sync::Behind))),
             concat!(branch!(color!(red)), chevron!(color!(green)))
         );
         assert_eq!(
-            test(|s| s.git(git::Repo::Clean(git::Sync::Ahead))),
+            test(|mut s| render_git(&mut s, git::Repo::Clean(git::Sync::Ahead))),
             concat!(branch!(color!(yellow)), chevron!(color!(green)))
         );
         assert_eq!(
-            test(|s| s.git(git::Repo::Clean(git::Sync::Diverged))),
+            test(|mut s| render_git(&mut s, git::Repo::Clean(git::Sync::Diverged))),
             concat!(branch!(color!(magenta)), chevron!(color!(green)))
         );
         assert_eq!(
-            test(|s| s.git(git::Repo::Clean(git::Sync::UpToDate))),
+            test(|mut s| render_git(&mut s, git::Repo::Clean(git::Sync::UpToDate))),
             concat!(branch!(), chevron!(color!(green)))
         );
         assert_eq!(
-            test(|s| s.git(git::Repo::Clean(git::Sync::Local))),
+            test(|mut s| render_git(&mut s, git::Repo::Clean(git::Sync::Local))),
             concat!(branch!(color!(blue)), chevron!(color!(green)))
         );
     }
@@ -784,50 +773,56 @@ mod tests {
     #[test]
     fn git_sync_dirty() {
         assert_eq!(
-            test(|s| s.git(git::Repo::Dirty(git::Sync::Behind))),
+            test(|mut s| render_git(&mut s, git::Repo::Dirty(git::Sync::Behind))),
             concat!(branch!(color!(red)), chevron!(color!(yellow)))
         );
         assert_eq!(
-            test(|s| s.git(git::Repo::Dirty(git::Sync::Ahead))),
+            test(|mut s| render_git(&mut s, git::Repo::Dirty(git::Sync::Ahead))),
             concat!(branch!(color!(yellow)), chevron!(color!(yellow)))
         );
         assert_eq!(
-            test(|s| s.git(git::Repo::Dirty(git::Sync::Diverged))),
+            test(|mut s| render_git(&mut s, git::Repo::Dirty(git::Sync::Diverged))),
             concat!(branch!(color!(magenta)), chevron!(color!(yellow)))
         );
         assert_eq!(
-            test(|s| s.git(git::Repo::Dirty(git::Sync::UpToDate))),
+            test(|mut s| render_git(&mut s, git::Repo::Dirty(git::Sync::UpToDate))),
             concat!(branch!(), chevron!(color!(yellow)))
         );
         assert_eq!(
-            test(|s| s.git(git::Repo::Dirty(git::Sync::Local))),
+            test(|mut s| render_git(&mut s, git::Repo::Dirty(git::Sync::Local))),
             concat!(branch!(color!(blue)), chevron!(color!(yellow)))
         );
     }
 
     #[test]
     fn git_status() {
-        assert_eq!(test(|s| s.git(git::Repo::None)), chevron!(color!(blue)));
         assert_eq!(
-            test(|s| s.git(git::Repo::Clean(git::Sync::UpToDate))),
+            test(|mut s| render_git(&mut s, git::Repo::None)),
+            chevron!(color!(blue))
+        );
+        assert_eq!(
+            test(|mut s| render_git(&mut s, git::Repo::Clean(git::Sync::UpToDate))),
             concat!(branch!(), chevron!(color!(green)))
         );
         assert_eq!(
-            test(|s| s.git(git::Repo::Dirty(git::Sync::UpToDate))),
+            test(|mut s| render_git(&mut s, git::Repo::Dirty(git::Sync::UpToDate))),
             concat!(branch!(), chevron!(color!(yellow)))
         );
         assert_eq!(
-            test(|s| s.git(git::Repo::Detached)),
+            test(|mut s| render_git(&mut s, git::Repo::Detached)),
             concat!(branch!(), chevron!(color!(magenta)))
         );
         assert_eq!(
-            test(|s| s.git(git::Repo::Pending)),
+            test(|mut s| render_git(&mut s, git::Repo::Pending)),
             concat!(symbol!(warn), chevron!(color!(cyan)))
         );
         assert_eq!(
-            test(|s| s.git(git::Repo::Untracked)),
+            test(|mut s| render_git(&mut s, git::Repo::Untracked)),
             concat!(branch!(), chevron!(color!(cyan)))
         );
-        assert_eq!(test(|s| s.git(git::Repo::Error)), chevron!(color!(red)));
+        assert_eq!(
+            test(|mut s| render_git(&mut s, git::Repo::Error)),
+            chevron!(color!(red))
+        );
     }
 }

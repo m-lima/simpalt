@@ -147,15 +147,16 @@ mod git;
 type Result<T = ()> = std::io::Result<T>;
 
 fn main() {
-    drop(args::parse().run(std::io::stdout().lock()));
+    args::parse().run(std::io::stdout().lock());
 }
 
 #[cfg(test)]
 fn test<F>(testing: F) -> String
 where
-    F: FnOnce(&mut Vec<u8>) -> crate::Result,
+    F: FnOnce(print::Ansi<&mut Vec<u8>>) -> crate::Result,
 {
     let mut buffer = String::new();
-    unsafe { testing(buffer.as_mut_vec()).unwrap() };
+    let printer = unsafe { print::Ansi::new(buffer.as_mut_vec()) };
+    testing(printer).unwrap();
     buffer
 }

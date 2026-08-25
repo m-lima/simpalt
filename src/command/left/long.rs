@@ -1,118 +1,133 @@
 use crate::Result;
 use crate::git::long as git;
+use crate::print::{Color, Div, Printer, Symbol};
 
-pub fn render<Out>(out: Out, host: Option<String>, error: bool, jobs: bool) -> Result
+pub fn render<P>(printer: P, host: Option<String>, error: bool, jobs: bool) -> Result
 where
-    Out: std::io::Write,
+    P: Printer,
 {
-    render_inner(out, host, error, jobs, &SysEnv)
+    render_inner(printer, host, error, jobs, &SysEnv)
 }
 
-fn render_inner<Out, Env>(
-    mut out: Out,
+fn render_inner<P, Env>(
+    mut printer: P,
     host: Option<String>,
     error: bool,
     jobs: bool,
     enver: &Env,
 ) -> Result
 where
-    Out: std::io::Write,
+    P: Printer,
     Env: EnvFetcher,
 {
-    let mut last = None;
+    printer.fg(Color::Reset).bg(Color::Black).txt(" ")?;
 
     if error {
-        out.div(&mut last, color!(black), color!(red))?;
-        write!(out, symbol!(error))?;
+        printer.fg(Color::Red).txt(Symbol::Error)?.txt(" ")?;
     }
 
     if jobs {
-        out.div(&mut last, color!(black), color!(magenta))?;
-        write!(out, symbol!(jobs))?;
+        printer.fg(Color::Magenta).txt(Symbol::Jobs)?.txt(" ")?;
     }
 
     let direnv = enver.direnv();
     let nixshell = enver.nixshell();
 
     if nixshell == Nixshell::Generic && !matches!(direnv, Some((_, true))) {
-        out.div(&mut last, color!(black), color!(cyan))?;
-        write!(out, symbol!(flake))?;
+        printer.fg(Color::Cyan).txt(Symbol::Flake)?.txt(" ")?;
     }
 
     if let Some(host) = host {
-        out.div(&mut last, color!(black), color!(reset))?;
-        write!(out, "{host}")?;
-        write!(out, style!(reset to bg = color!(black)))?;
+        printer
+            .fg(Color::Reset)
+            .txt(&host)?
+            .bg(Color::Black)
+            .txt(" ")?;
     }
 
     if let Nixshell::Package(pkg) = nixshell {
-        out.div(&mut last, color!(yellow), color!(black))?;
-        write!(out, "{pkg}")?;
+        printer
+            .fg(Color::Black)
+            .div(Div::ChevronLeft, Color::Yellow)?
+            .txt(" ")?
+            .txt(&pkg)?
+            .txt(" ")?;
     }
 
     if let Some((direnv, active)) = direnv {
         if active {
-            out.div(&mut last, color!(black), color!(green))?;
+            printer
+                .fg(Color::Black)
+                .div(Div::ChevronLeft, Color::Green)?
+                .txt(" ")?;
         } else {
-            out.div(&mut last, color!(black), color!(red))?;
+            printer
+                .fg(Color::Black)
+                .div(Div::ChevronLeft, Color::Red)?
+                .txt(" ")?;
         }
-        if let Some(direnv) = direnv.rsplit(std::path::MAIN_SEPARATOR).next() {
-            write!(out, "{direnv}")?;
+        if let Some(inner) = direnv.rsplit(std::path::MAIN_SEPARATOR).next() {
+            printer.txt(inner)?.txt(" ")?;
         } else {
-            write!(out, "{direnv}")?;
+            printer.txt(&direnv)?.txt(" ")?;
         }
     }
 
     if let Some(venv) = enver.venv() {
-        out.div(&mut last, color!(cyan), color!(black))?;
-        if let Some(venv) = venv.rsplit(std::path::MAIN_SEPARATOR).next() {
-            write!(out, "{venv}")?;
+        printer
+            .fg(Color::Black)
+            .div(Div::ChevronLeft, Color::Cyan)?
+            .txt(" ")?;
+        if let Some(inner) = venv.rsplit(std::path::MAIN_SEPARATOR).next() {
+            printer.txt(inner)?.txt(" ")?;
         } else {
-            write!(out, "{venv}")?;
+            printer.txt(&venv)?.txt(" ")?;
         }
     }
 
     let pwd = enver.pwd();
 
-    out.div(&mut last, color!(blue), color!(black))?;
-    if let Some(ref pwd) = pwd
-        && let Some(pwd) = pwd.to_str()
-    {
-        if let Some(pwd) = enver.home().and_then(|home| pwd.strip_prefix(&home)) {
-            write!(out, "~{pwd}")?;
-        } else {
-            write!(out, "{pwd}")?;
+    printer
+        .fg(Color::Black)
+        .div(Div::ChevronLeft, Color::Blue)?
+        .txt(" ")?;
+    if let Some(ref pwd) = pwd {
+        if let Some(pwd) = pwd.to_str() {
+            if let Some(pwd) = enver.home().and_then(|home| pwd.strip_prefix(&home)) {
+                printer.txt("~")?.txt(pwd)?.txt(" ")?;
+            } else {
+                printer.txt(pwd)?.txt(" ")?;
+            }
         }
+        render_git(&mut printer, git::parse(pwd))?;
     }
 
-    if let Some(ref pwd) = pwd {
-        last = render_git(&mut out, pwd, last)?;
-    }
-    out.div(&mut last, color!(reset), color!(reset))?;
-    out.flush()
+    printer
+        .fg(Color::Reset)
+        .div(Div::ChevronLeft, Color::Reset)?
+        .txt(" ")?
+        .flush()
 }
 
-fn render_git<Out>(
-    out: &mut Out,
-    pwd: &std::path::Path,
-    mut last: Option<&'static str>,
-) -> Result<Option<&'static str>>
+fn render_git<P>(printer: &mut P, repo: git::Repo) -> Result<Option<&'static str>>
 where
-    Out: std::io::Write,
+    P: Printer,
 {
-    match git::parse(pwd) {
+    match repo {
         git::Repo::None => {}
         git::Repo::Error => {
-            out.div(&mut last, color!(red), color!(black))?;
-            write!(out, "!")?;
+            printer
+                .fg(Color::Black)
+                .div(Div::ChevronLeft, Color::Red)?
+                .txt(Symbol::Warn)?;
         }
         git::Repo::Regular(head, sync, changes) => {
             if changes.clean() {
-                out.render_sync(&mut last, sync)?;
+                render_sync(printer, sync)?;
                 out.div(&mut last, color!(green), color!(black))?;
                 write!(out, concat!(symbol!(branch), "{head}"), head = head)?;
             } else {
-                out.render_changes(&mut last, changes)?;
+                render_changes(printer, changes)?;
                 if !matches!(
                     sync,
                     git::Sync::Tracked {
@@ -122,19 +137,19 @@ where
                 ) {
                     out.div(&mut last, color!(black), color!(reset))?;
                     write!(out, symbol!(div thin))?;
-                    out.render_sync(&mut last, sync)?;
+                    render_sync(printer, sync)?;
                 }
                 out.div(&mut last, color!(yellow), color!(black))?;
                 write!(out, concat!(symbol!(branch), "{head}"), head = head)?;
             }
         }
         git::Repo::Detached(head, changes) => {
-            out.render_changes(&mut last, changes)?;
+            render_changes(printer, changes)?;
             out.div(&mut last, color!(magenta), color!(black))?;
             write!(out, concat!(symbol!(ref), "{head}"), head = head)?;
         }
         git::Repo::Pending(head, pending, changes) => {
-            out.render_changes(&mut last, changes)?;
+            render_changes(printer, changes)?;
             out.div(&mut last, color!(cyan), color!(black))?;
             write!(
                 out,
@@ -144,7 +159,7 @@ where
             )?;
         }
         git::Repo::New(changes) => {
-            out.render_changes(&mut last, changes)?;
+            render_changes(printer, changes)?;
             out.div(&mut last, color!(cyan), color!(black))?;
             write!(out, symbol!(new))?;
         }
@@ -159,10 +174,6 @@ trait Writer {
         to: &'static str,
         fg: &'static str,
     ) -> Result;
-
-    fn render_changes(&mut self, last: &mut Option<&'static str>, changes: git::Changes) -> Result;
-
-    fn render_sync(&mut self, last: &mut Option<&'static str>, sync: git::Sync) -> Result;
 }
 
 impl<W: std::io::Write> Writer for W {
@@ -190,51 +201,57 @@ impl<W: std::io::Write> Writer for W {
         *last = Some(to);
         Ok(())
     }
+}
 
-    fn render_changes(&mut self, last: &mut Option<&'static str>, changes: git::Changes) -> Result {
-        if changes.added > 0 {
-            self.div(last, color!(black), color!(green))?;
-            write!(self, "+{added}", added = changes.added)?;
-        }
-
-        if changes.removed > 0 {
-            self.div(last, color!(black), color!(red))?;
-            write!(self, "-{removed}", removed = changes.removed)?;
-        }
-
-        if changes.modified > 0 {
-            self.div(last, color!(black), color!(blue))?;
-            write!(self, "~{modified}", modified = changes.modified)?;
-        }
-
-        if changes.conflicted > 0 {
-            self.div(last, color!(black), color!(magenta))?;
-            write!(self, "!{conflicted}", conflicted = changes.conflicted)?;
-        }
-        Ok(())
+fn render_changes<P>(printer: &mut P, changes: git::Changes) -> Result
+where
+    P: Printer,
+{
+    if changes.added > 0 {
+        self.div(last, color!(black), color!(green))?;
+        write!(self, "+{added}", added = changes.added)?;
     }
 
-    fn render_sync(&mut self, last: &mut Option<&'static str>, sync: git::Sync) -> Result {
-        match sync {
-            git::Sync::Local => {
-                self.div(last, color!(black), color!(cyan))?;
-                write!(self, concat!(symbol!(local), " local"))
+    if changes.removed > 0 {
+        self.div(last, color!(black), color!(red))?;
+        write!(self, "-{removed}", removed = changes.removed)?;
+    }
+
+    if changes.modified > 0 {
+        self.div(last, color!(black), color!(blue))?;
+        write!(self, "~{modified}", modified = changes.modified)?;
+    }
+
+    if changes.conflicted > 0 {
+        self.div(last, color!(black), color!(magenta))?;
+        write!(self, "!{conflicted}", conflicted = changes.conflicted)?;
+    }
+    Ok(())
+}
+
+fn render_sync<P>(printer: &mut P, sync: git::Sync) -> Result
+where
+    P: Printer,
+{
+    match sync {
+        git::Sync::Local => {
+            self.div(last, color!(black), color!(cyan))?;
+            write!(self, concat!(symbol!(local), " local"))
+        }
+        git::Sync::Gone => {
+            self.div(last, color!(black), color!(magenta))?;
+            write!(self, concat!(symbol!(gone), " gone"))
+        }
+        git::Sync::Tracked { ahead, behind } => {
+            if ahead > 0 {
+                self.div(last, color!(black), color!(yellow))?;
+                write!(self, concat!(symbol!(ahead), "{ahead}"), ahead = ahead)?;
             }
-            git::Sync::Gone => {
-                self.div(last, color!(black), color!(magenta))?;
-                write!(self, concat!(symbol!(gone), " gone"))
+            if behind > 0 {
+                self.div(last, color!(black), color!(red))?;
+                write!(self, concat!(symbol!(behind), "{behind}"), behind = behind)?;
             }
-            git::Sync::Tracked { ahead, behind } => {
-                if ahead > 0 {
-                    self.div(last, color!(black), color!(yellow))?;
-                    write!(self, concat!(symbol!(ahead), "{ahead}"), ahead = ahead)?;
-                }
-                if behind > 0 {
-                    self.div(last, color!(black), color!(red))?;
-                    write!(self, concat!(symbol!(behind), "{behind}"), behind = behind)?;
-                }
-                Ok(())
-            }
+            Ok(())
         }
     }
 }

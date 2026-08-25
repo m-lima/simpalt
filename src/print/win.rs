@@ -1,14 +1,15 @@
 use super::{Color, Div, Printer};
 
-pub struct Ansi<Out> {
+pub struct Win<Out> {
     out: Out,
+    sub: String,
     fg: Color,
     bg: Color,
     last_fg: Option<Color>,
     last_bg: Option<Color>,
 }
 
-impl<Out> Printer for Ansi<Out>
+impl<Out> Printer for Win<Out>
 where
     Out: std::io::Write,
 {
@@ -76,13 +77,14 @@ where
     }
 }
 
-impl<Out> Ansi<Out>
+impl<Out> Win<Out>
 where
     Out: std::io::Write,
 {
-    pub fn new(out: Out) -> Self {
+    pub fn new<S: ToString>(out: Out, sub: S) -> Self {
         Self {
             out,
+            sub: sub.to_string(),
             fg: Color::Reset,
             bg: Color::Reset,
             last_fg: None,

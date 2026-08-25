@@ -4,8 +4,8 @@ pub struct Zsh<Out> {
     out: Out,
     fg: Color,
     bg: Color,
-    last_fg: Color,
-    last_bg: Color,
+    last_fg: Option<Color>,
+    last_bg: Option<Color>,
 }
 
 impl<Out> Printer for Zsh<Out>
@@ -35,13 +35,13 @@ where
                 self.out.write_all(b"%{[3")?;
                 self.color(true)?;
                 write!(self.out, "m%}}{txt}")?;
-                self.last_fg = self.fg;
+                self.last_fg = Some(self.fg);
             }
             (true, false) => {
                 self.out.write_all(b"%{[4")?;
                 self.color(false)?;
                 write!(self.out, "m%}}{txt}")?;
-                self.last_bg = self.bg;
+                self.last_bg = Some(self.bg);
             }
             (false, false) => {
                 match (self.fg == Color::Reset, self.bg == Color::Reset) {
@@ -64,11 +64,15 @@ where
                         write!(self.out, "m%}}{txt}")?;
                     }
                 }
-                self.last_fg = self.fg;
-                self.last_bg = self.bg;
+                self.last_fg = Some(self.fg);
+                self.last_bg = Some(self.bg);
             }
         }
         Ok(self)
+    }
+
+    fn flush(&mut self) -> std::io::Result<()> {
+        self.out.flush()
     }
 }
 
@@ -76,6 +80,16 @@ impl<Out> Zsh<Out>
 where
     Out: std::io::Write,
 {
+    pub fn new(out: Out) -> Self {
+        Self {
+            out,
+            fg: Color::Reset,
+            bg: Color::Reset,
+            last_fg: None,
+            last_bg: None,
+        }
+    }
+
     fn color(&mut self, fg: bool) -> std::io::Result<()> {
         match if fg { self.fg } else { self.bg } {
             Color::Black => self.out.write_all(b"0"),

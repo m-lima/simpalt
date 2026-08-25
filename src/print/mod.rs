@@ -1,9 +1,11 @@
 mod ansi;
 mod tmux;
+mod win;
 mod zsh;
 
 pub use ansi::Ansi;
 pub use tmux::Tmux;
+pub use win::Win;
 pub use zsh::Zsh;
 
 #[derive(Copy, Clone, Eq, PartialEq)]
@@ -19,6 +21,16 @@ pub enum Color {
     Vga(u8),
     Rgb { r: u8, g: u8, b: u8 },
     Reset,
+}
+
+impl PartialEq<Option<Color>> for Color {
+    fn eq(&self, other: &Option<Color>) -> bool {
+        if let Some(other) = other {
+            self.eq(other)
+        } else {
+            false
+        }
+    }
 }
 
 #[derive(Copy, Clone)]
@@ -121,4 +133,5 @@ pub trait Printer {
     fn bg(&mut self, color: Color) -> &mut Self;
     fn div(&mut self, div: Div, into: Color) -> std::io::Result<&mut Self>;
     fn txt<S: std::fmt::Display>(&mut self, txt: S) -> std::io::Result<&mut Self>;
+    fn flush(&mut self) -> std::io::Result<()>;
 }

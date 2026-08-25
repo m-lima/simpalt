@@ -1,10 +1,9 @@
 mod direnv;
 mod long;
-// mod nixshell;
 mod short;
 
 use super::Compat;
-use crate::{Result, compat};
+use crate::{Result, print};
 
 #[derive(Debug, Eq, PartialEq)]
 pub struct Args {
@@ -20,16 +19,22 @@ where
     Out: std::io::Write,
 {
     match args.compat {
-        Compat::None => render_inner(out, args.long, args.host, args.error, args.jobs),
+        Compat::None => render_inner(
+            print::Ansi::new(out),
+            args.long,
+            args.host,
+            args.error,
+            args.jobs,
+        ),
         Compat::Zsh => render_inner(
-            compat::Zsh::new(out),
+            print::Zsh::new(out),
             args.long,
             args.host,
             args.error,
             args.jobs,
         ),
         Compat::Win(sub) => render_inner(
-            compat::Win::new(out, sub),
+            print::Win::new(out, sub),
             args.long,
             args.host,
             args.error,
@@ -38,13 +43,13 @@ where
     }
 }
 
-fn render_inner<Out>(out: Out, long: bool, host: Option<String>, error: bool, jobs: bool) -> Result
+fn render_inner<P>(printer: P, long: bool, host: Option<String>, error: bool, jobs: bool) -> Result
 where
-    Out: std::io::Write,
+    P: print::Printer,
 {
     if long {
-        long::render(out, host, error, jobs)
+        long::render(printer, host, error, jobs)
     } else {
-        short::render(out, host, error, jobs)
+        short::render(printer, host, error, jobs)
     }
 }
