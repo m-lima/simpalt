@@ -1,7 +1,5 @@
 #![deny(warnings, rust_2018_idioms, clippy::pedantic)]
 
-mod print;
-
 macro_rules! style {
     (reset $(, $($param: expr),*)?) => {
         concat!("[m" $(, $($param),*)?)
@@ -143,11 +141,12 @@ mod args;
 mod command;
 mod compat;
 mod git;
+mod print;
 
 type Result<T = ()> = std::io::Result<T>;
 
 fn main() {
-    args::parse().run(std::io::stdout().lock());
+    let _ = args::parse().run(std::io::stdout().lock());
 }
 
 #[cfg(test)]

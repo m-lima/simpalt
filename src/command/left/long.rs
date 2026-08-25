@@ -20,83 +20,75 @@ where
     P: Printer,
     Env: EnvFetcher,
 {
-    printer.fg(Color::Reset).bg(Color::Black).txt(" ")?;
+    printer.fg(Color::Reset).bg(Color::Black);
 
     if error {
-        printer.fg(Color::Red).txt(Symbol::Error)?.txt(" ")?;
+        printer.fg(Color::Red).txt_gap(Symbol::Error)?;
     }
 
     if jobs {
-        printer.fg(Color::Magenta).txt(Symbol::Jobs)?.txt(" ")?;
+        printer.fg(Color::Magenta).txt_gap(Symbol::Jobs)?;
     }
 
     let direnv = enver.direnv();
     let nixshell = enver.nixshell();
 
     if nixshell == Nixshell::Generic && !matches!(direnv, Some((_, true))) {
-        printer.fg(Color::Cyan).txt(Symbol::Flake)?.txt(" ")?;
+        printer.fg(Color::Cyan).txt_gap(Symbol::Flake)?;
     }
 
     if let Some(host) = host {
         printer
             .fg(Color::Reset)
             .txt(&host)?
+            .fg(Color::Reset)
             .bg(Color::Black)
-            .txt(" ")?;
+            .gap()?;
     }
 
     if let Nixshell::Package(pkg) = nixshell {
         printer
             .fg(Color::Black)
             .div(Div::ChevronLeft, Color::Yellow)?
-            .txt(" ")?
-            .txt(&pkg)?
-            .txt(" ")?;
+            .txt_gap(&pkg)?;
     }
 
     if let Some((direnv, active)) = direnv {
         if active {
-            printer
-                .fg(Color::Black)
-                .div(Div::ChevronLeft, Color::Green)?
-                .txt(" ")?;
+            printer.div(Div::ChevronLeft, Color::Green)?;
         } else {
-            printer
-                .fg(Color::Black)
-                .div(Div::ChevronLeft, Color::Red)?
-                .txt(" ")?;
+            printer.div(Div::ChevronLeft, Color::Red)?;
         }
+
+        printer.fg(Color::Black);
+
         if let Some(inner) = direnv.rsplit(std::path::MAIN_SEPARATOR).next() {
-            printer.txt(inner)?.txt(" ")?;
+            printer.txt_gap(inner)?;
         } else {
-            printer.txt(&direnv)?.txt(" ")?;
+            printer.txt_gap(&direnv)?;
         }
     }
 
     if let Some(venv) = enver.venv() {
-        printer
-            .fg(Color::Black)
-            .div(Div::ChevronLeft, Color::Cyan)?
-            .txt(" ")?;
+        printer.div(Div::ChevronLeft, Color::Cyan)?.fg(Color::Black);
+
         if let Some(inner) = venv.rsplit(std::path::MAIN_SEPARATOR).next() {
-            printer.txt(inner)?.txt(" ")?;
+            printer.txt_gap(inner)?;
         } else {
-            printer.txt(&venv)?.txt(" ")?;
+            printer.txt_gap(&venv)?;
         }
     }
 
     let pwd = enver.pwd();
 
-    printer
-        .fg(Color::Black)
-        .div(Div::ChevronLeft, Color::Blue)?
-        .txt(" ")?;
     if let Some(ref pwd) = pwd {
         if let Some(pwd) = pwd.to_str() {
+            printer.div(Div::ChevronLeft, Color::Blue)?.fg(Color::Black);
+
             if let Some(pwd) = enver.home().and_then(|home| pwd.strip_prefix(&home)) {
-                printer.txt("~")?.txt(pwd)?.txt(" ")?;
+                printer.gap()?.txt("~")?.txt(pwd)?.gap()?;
             } else {
-                printer.txt(pwd)?.txt(" ")?;
+                printer.txt_gap(pwd)?;
             }
         }
         render_git(&mut printer, git::parse(pwd))?;
@@ -105,11 +97,11 @@ where
     printer
         .fg(Color::Reset)
         .div(Div::ChevronLeft, Color::Reset)?
-        .txt(" ")?
+        .gap()?
         .flush()
 }
 
-fn render_git<P>(printer: &mut P, repo: git::Repo) -> Result<Option<&'static str>>
+fn render_git<P>(printer: &mut P, repo: git::Repo) -> Result
 where
     P: Printer,
 {
@@ -117,15 +109,20 @@ where
         git::Repo::None => {}
         git::Repo::Error => {
             printer
-                .fg(Color::Black)
                 .div(Div::ChevronLeft, Color::Red)?
+                .fg(Color::Black)
                 .txt(Symbol::Warn)?;
         }
         git::Repo::Regular(head, sync, changes) => {
             if changes.clean() {
                 render_sync(printer, sync)?;
-                out.div(&mut last, color!(green), color!(black))?;
-                write!(out, concat!(symbol!(branch), "{head}"), head = head)?;
+                printer
+                    .div(Div::ChevronLeft, Color::Green)?
+                    .fg(Color::Black)
+                    .gap()?
+                    .txt(Symbol::Branch)?
+                    .txt(&head)?
+                    .gap()?;
             } else {
                 render_changes(printer, changes)?;
                 if !matches!(
@@ -135,96 +132,92 @@ where
                         behind: 0
                     }
                 ) {
-                    out.div(&mut last, color!(black), color!(reset))?;
-                    write!(out, symbol!(div thin))?;
+                    printer
+                        .div(Div::ChevronLeft, Color::Black)?
+                        .fg(Color::Reset)
+                        .txt_gap(Symbol::SlantTop)?;
                     render_sync(printer, sync)?;
                 }
-                out.div(&mut last, color!(yellow), color!(black))?;
-                write!(out, concat!(symbol!(branch), "{head}"), head = head)?;
+                printer
+                    .div(Div::ChevronLeft, Color::Yellow)?
+                    .fg(Color::Black)
+                    .gap()?
+                    .txt(Symbol::Branch)?
+                    .txt(&head)?
+                    .gap()?;
             }
         }
         git::Repo::Detached(head, changes) => {
             render_changes(printer, changes)?;
-            out.div(&mut last, color!(magenta), color!(black))?;
-            write!(out, concat!(symbol!(ref), "{head}"), head = head)?;
+            printer
+                .div(Div::ChevronLeft, Color::Magenta)?
+                .fg(Color::Black)
+                .gap()?
+                .txt(Symbol::Ref)?
+                .txt(&head)?
+                .gap()?;
         }
         git::Repo::Pending(head, pending, changes) => {
             render_changes(printer, changes)?;
-            out.div(&mut last, color!(cyan), color!(black))?;
-            write!(
-                out,
-                concat!(symbol!(branch), "{head} {pending}"),
-                head = head,
-                pending = pending_symbol(pending),
-            )?;
+            printer
+                .div(Div::ChevronLeft, Color::Cyan)?
+                .fg(Color::Black)
+                .gap()?
+                .txt(Symbol::Branch)?
+                .txt(&head)?
+                .txt_gap(pending_symbol(pending))?;
         }
         git::Repo::New(changes) => {
             render_changes(printer, changes)?;
-            out.div(&mut last, color!(cyan), color!(black))?;
-            write!(out, symbol!(new))?;
+            printer
+                .div(Div::ChevronLeft, Color::Cyan)?
+                .fg(Color::Black)
+                .txt_gap(Symbol::New)?;
         }
     }
-    Ok(last)
-}
-
-trait Writer {
-    fn div(
-        &mut self,
-        last: &mut Option<&'static str>,
-        to: &'static str,
-        fg: &'static str,
-    ) -> Result;
-}
-
-impl<W: std::io::Write> Writer for W {
-    fn div(
-        &mut self,
-        last: &mut Option<&'static str>,
-        to: &'static str,
-        fg: &'static str,
-    ) -> Result {
-        if let Some(last) = last {
-            if &to == last {
-                write!(self, " [3{fg}m")?;
-            } else {
-                write!(
-                    self,
-                    concat!(" [3{last};4{to}m", symbol!(div), "[3{fg}m "),
-                    last = last,
-                    to = to,
-                    fg = fg,
-                )?;
-            }
-        } else {
-            write!(self, "[3{fg};4{to}m ")?;
-        }
-        *last = Some(to);
-        Ok(())
-    }
+    Ok(())
 }
 
 fn render_changes<P>(printer: &mut P, changes: git::Changes) -> Result
 where
     P: Printer,
 {
+    printer.bg(Color::Black);
+
     if changes.added > 0 {
-        self.div(last, color!(black), color!(green))?;
-        write!(self, "+{added}", added = changes.added)?;
+        printer
+            .fg(Color::Green)
+            .gap()?
+            .txt("+")?
+            .txt(changes.added)?
+            .gap()?;
     }
 
     if changes.removed > 0 {
-        self.div(last, color!(black), color!(red))?;
-        write!(self, "-{removed}", removed = changes.removed)?;
+        printer
+            .fg(Color::Red)
+            .gap()?
+            .txt("-")?
+            .txt(changes.removed)?
+            .gap()?;
     }
 
     if changes.modified > 0 {
-        self.div(last, color!(black), color!(blue))?;
-        write!(self, "~{modified}", modified = changes.modified)?;
+        printer
+            .fg(Color::Blue)
+            .gap()?
+            .txt("~")?
+            .txt(changes.modified)?
+            .gap()?;
     }
 
     if changes.conflicted > 0 {
-        self.div(last, color!(black), color!(magenta))?;
-        write!(self, "!{conflicted}", conflicted = changes.conflicted)?;
+        printer
+            .fg(Color::Magenta)
+            .gap()?
+            .txt("!")?
+            .txt(changes.modified)?
+            .gap()?;
     }
     Ok(())
 }
@@ -233,37 +226,48 @@ fn render_sync<P>(printer: &mut P, sync: git::Sync) -> Result
 where
     P: Printer,
 {
+    printer.bg(Color::Black);
+
     match sync {
         git::Sync::Local => {
-            self.div(last, color!(black), color!(cyan))?;
-            write!(self, concat!(symbol!(local), " local"))
+            printer
+                .fg(Color::Cyan)
+                .txt_gap(Symbol::Local)?
+                .txt_gap("local")?;
         }
         git::Sync::Gone => {
-            self.div(last, color!(black), color!(magenta))?;
-            write!(self, concat!(symbol!(gone), " gone"))
+            printer
+                .fg(Color::Magenta)
+                .txt_gap(Symbol::Gone)?
+                .txt_gap("gone")?;
         }
         git::Sync::Tracked { ahead, behind } => {
             if ahead > 0 {
-                self.div(last, color!(black), color!(yellow))?;
-                write!(self, concat!(symbol!(ahead), "{ahead}"), ahead = ahead)?;
+                printer
+                    .fg(Color::Yellow)
+                    .txt_gap(Symbol::Ahead)?
+                    .txt_gap(ahead)?;
             }
             if behind > 0 {
-                self.div(last, color!(black), color!(red))?;
-                write!(self, concat!(symbol!(behind), "{behind}"), behind = behind)?;
+                printer
+                    .fg(Color::Red)
+                    .txt_gap(Symbol::Behind)?
+                    .txt_gap(behind)?;
             }
-            Ok(())
         }
     }
+
+    Ok(())
 }
 
-const fn pending_symbol(pending: git::Pending) -> &'static str {
+const fn pending_symbol(pending: git::Pending) -> Symbol {
     match pending {
-        git::Pending::Merge => symbol!(merge),
-        git::Pending::Revert => symbol!(revert),
-        git::Pending::Cherry => symbol!(cherry),
-        git::Pending::Bisect => symbol!(bisect),
-        git::Pending::Rebase => symbol!(rebase),
-        git::Pending::Mailbox => symbol!(mailbox),
+        git::Pending::Merge => Symbol::Merge,
+        git::Pending::Revert => Symbol::Revert,
+        git::Pending::Cherry => Symbol::Cherry,
+        git::Pending::Bisect => Symbol::Bisect,
+        git::Pending::Rebase => Symbol::Rebase,
+        git::Pending::Mailbox => Symbol::Mailbox,
     }
 }
 

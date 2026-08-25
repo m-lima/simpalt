@@ -7,6 +7,7 @@ pub struct Win<Out> {
     bg: Color,
     last_fg: Option<Color>,
     last_bg: Option<Color>,
+    has_gap: bool,
 }
 
 impl<Out> Printer for Win<Out>
@@ -27,6 +28,14 @@ where
         self.fg = self.bg;
         self.bg = into;
         self.txt(div)
+    }
+
+    fn gap(&mut self) -> std::io::Result<&mut Self> {
+        if !self.has_gap {
+            self.txt(" ")?;
+            self.has_gap = true;
+        }
+        Ok(self)
     }
 
     fn txt<S: std::fmt::Display>(&mut self, txt: S) -> std::io::Result<&mut Self> {
@@ -69,6 +78,7 @@ where
                 self.last_bg = Some(self.bg);
             }
         }
+        self.has_gap = false;
         Ok(self)
     }
 
@@ -89,6 +99,7 @@ where
             bg: Color::Reset,
             last_fg: None,
             last_bg: None,
+            has_gap: false,
         }
     }
 

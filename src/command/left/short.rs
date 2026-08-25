@@ -28,21 +28,21 @@ where
     P: Printer,
     Env: EnvFetcher,
 {
-    printer.fg(Color::Reset).bg(Color::Black).txt(" ")?;
+    printer.fg(Color::Reset).bg(Color::Black);
 
     if error {
-        printer.fg(Color::Red).txt(Symbol::Error)?.txt(" ")?;
+        printer.fg(Color::Red).txt_gap(Symbol::Error)?;
     }
 
     if jobs {
-        printer.fg(Color::Magenta).txt(Symbol::Jobs)?.txt(" ")?;
+        printer.fg(Color::Magenta).txt_gap(Symbol::Jobs)?;
     }
 
     let direnv = enver.direnv();
     if let Some(nixshell) = enver.nixshell()
         && (nixshell || !matches!(direnv, Some(true)))
     {
-        printer.fg(Color::Yellow).txt(Symbol::Package)?.txt(" ")?;
+        printer.fg(Color::Yellow).txt_gap(Symbol::Package)?;
     }
 
     if let Some(active) = direnv {
@@ -51,12 +51,11 @@ where
         } else {
             printer.fg(Color::Red)
         }
-        .txt(Symbol::Direnv)?
-        .txt(" ")?;
+        .txt_gap(Symbol::Direnv)?;
     }
 
     if enver.venv() {
-        printer.fg(Color::Green).txt(Symbol::Python)?.txt(" ")?;
+        printer.fg(Color::Green).txt_gap(Symbol::Python)?;
     }
 
     if let Some(host) = host {
@@ -65,19 +64,19 @@ where
             .txt(&host)?
             .fg(Color::Reset)
             .bg(Color::Black)
-            .txt(" ")?;
+            .gap()?;
     }
 
     let pwd = enver.pwd();
 
     if let Some(ref pwd) = pwd {
-        printer.txt(pwd_string(pwd, enver))?;
+        printer.txt_gap(pwd_string(pwd, enver))?;
         render_git(&mut printer, git::parse(pwd))?;
     } else {
         chevron!(printer, Blue);
     }
 
-    printer.fg(Color::Reset).bg(Color::Reset).txt(" ")?.flush()
+    printer.fg(Color::Reset).bg(Color::Reset).gap()?.flush()
 }
 
 fn pwd_string(path: &std::path::PathBuf, enver: &impl EnvFetcher) -> String {
