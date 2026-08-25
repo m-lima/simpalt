@@ -59,13 +59,10 @@ where
     }
 
     if let Some(host) = host {
-        printer
-            .fg(Color::Reset)
-            .txt(&host)?
-            .fg(Color::Reset)
-            .bg(Color::Black)
-            .gap()?;
+        printer.fg(Color::Reset).txt(&host)?;
     }
+
+    printer.invalidate().fg(Color::Reset).bg(Color::Black);
 
     let pwd = enver.pwd();
 
@@ -73,6 +70,7 @@ where
         printer.txt_gap(pwd_string(pwd, enver))?;
         render_git(&mut printer, git::parse(pwd))?;
     } else {
+        printer.gap()?;
         chevron!(printer, Blue);
     }
 
@@ -284,7 +282,7 @@ mod tests {
             style!(fg = color!(red)),
             symbol!(error),
             " ",
-            style!(fg = color!(cyan)),
+            style!(fg = color!(magenta)),
             symbol!(jobs),
             " ",
             // Missing HOST
@@ -388,7 +386,7 @@ mod tests {
             " ",
             style!(fg = color!(red), symbol!(error)),
             " ",
-            style!(fg = color!(cyan), symbol!(jobs)),
+            style!(fg = color!(magenta), symbol!(jobs)),
             " ",
             style!(fg = color!(yellow), symbol!(pkg)),
             " ",
@@ -433,7 +431,7 @@ mod tests {
             " ",
             style!(fg = color!(red), symbol!(error)),
             " ",
-            style!(fg = color!(cyan), symbol!(jobs)),
+            style!(fg = color!(magenta), symbol!(jobs)),
             " ",
             style!(fg = color!(red), symbol!(direnv)),
             " ",
@@ -474,7 +472,7 @@ mod tests {
             " ",
             style!(fg = color!(red), symbol!(error)),
             " ",
-            style!(fg = color!(cyan), symbol!(jobs)),
+            style!(fg = color!(magenta), symbol!(jobs)),
             " ",
             style!(fg = color!(green), symbol!(direnv)),
             " ",
@@ -515,7 +513,7 @@ mod tests {
             " ",
             style!(fg = color!(red), symbol!(error)),
             " ",
-            style!(fg = color!(cyan), symbol!(jobs)),
+            style!(fg = color!(magenta), symbol!(jobs)),
             " ",
             style!(fg = color!(yellow), symbol!(pkg)),
             " ",
@@ -556,7 +554,7 @@ mod tests {
             " ",
             style!(fg = color!(red), symbol!(error)),
             " ",
-            style!(fg = color!(cyan), symbol!(jobs)),
+            style!(fg = color!(magenta), symbol!(jobs)),
             " ",
             style!(fg = color!(yellow), symbol!(pkg)),
             " ",
@@ -597,7 +595,7 @@ mod tests {
             " ",
             style!(fg = color!(red), symbol!(error)),
             " ",
-            style!(fg = color!(cyan), symbol!(jobs)),
+            style!(fg = color!(magenta), symbol!(jobs)),
             " ",
             style!(fg = color!(green), symbol!(direnv)),
             " ",
@@ -638,7 +636,7 @@ mod tests {
             " ",
             style!(fg = color!(red), symbol!(error)),
             " ",
-            style!(fg = color!(cyan), symbol!(jobs)),
+            style!(fg = color!(magenta), symbol!(jobs)),
             " ",
             style!(fg = color!(yellow), symbol!(pkg)),
             " ",
@@ -681,7 +679,7 @@ mod tests {
             " ",
             style!(fg = color!(red), symbol!(error)),
             " ",
-            style!(fg = color!(cyan), symbol!(jobs)),
+            style!(fg = color!(magenta), symbol!(jobs)),
             " ",
             style!(fg = color!(yellow), symbol!(pkg)),
             " ",
@@ -724,7 +722,7 @@ mod tests {
             " ",
             style!(fg = color!(red), symbol!(error)),
             " ",
-            style!(fg = color!(cyan), symbol!(jobs)),
+            style!(fg = color!(magenta), symbol!(jobs)),
             " ",
             style!(fg = color!(yellow), symbol!(pkg)),
             " ",

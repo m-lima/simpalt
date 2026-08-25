@@ -24,9 +24,20 @@ where
     }
 
     fn div(&mut self, div: Div, into: Color) -> std::io::Result<&mut Self> {
-        self.fg = self.bg;
-        self.bg = into;
-        self.txt(div)
+        if into == self.last_bg {
+            Ok(self)
+        } else {
+            self.bg = into;
+            if let Some(last_bg) = self.last_bg {
+                let old_fg = self.fg;
+                self.fg = last_bg;
+                self.txt(div)?;
+                self.fg = old_fg;
+                Ok(self)
+            } else {
+                self.txt("")
+            }
+        }
     }
 
     fn gap(&mut self) -> std::io::Result<&mut Self> {
@@ -41,20 +52,28 @@ where
         match (self.fg == self.last_fg, self.bg == self.last_bg) {
             (true, true) => write!(self.out, "{txt}")?,
             (false, true) => {
-                self.out.write_all(b"[3")?;
-                self.color(true)?;
-                write!(self.out, "m{txt}")?;
+                if self.fg == Color::Reset && self.bg == Color::Reset {
+                    write!(self.out, "[m{txt}")?;
+                } else {
+                    self.out.write_all(b"[3")?;
+                    self.color(true)?;
+                    write!(self.out, "m{txt}")?;
+                }
                 self.last_fg = Some(self.fg);
             }
             (true, false) => {
-                self.out.write_all(b"[4")?;
-                self.color(false)?;
-                write!(self.out, "m{txt}")?;
+                if self.fg == Color::Reset && self.bg == Color::Reset {
+                    write!(self.out, "[m{txt}")?;
+                } else {
+                    self.out.write_all(b"[4")?;
+                    self.color(false)?;
+                    write!(self.out, "m{txt}")?;
+                }
                 self.last_bg = Some(self.bg);
             }
             (false, false) => {
                 match (self.fg == Color::Reset, self.bg == Color::Reset) {
-                    (true, true) => write!(self.out, "[;m{txt}")?,
+                    (true, true) => write!(self.out, "[m{txt}")?,
                     (false, true) => {
                         self.out.write_all(b"[;3")?;
                         self.color(true)?;
@@ -79,6 +98,12 @@ where
         }
         self.has_gap = false;
         Ok(self)
+    }
+
+    fn invalidate(&mut self) -> &mut Self {
+        self.last_fg = None;
+        self.last_bg = None;
+        self
     }
 
     fn flush(&mut self) -> std::io::Result<()> {

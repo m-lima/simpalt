@@ -1,6 +1,19 @@
 #![deny(warnings, rust_2018_idioms, clippy::pedantic)]
 
-macro_rules! style {
+mod args;
+mod command;
+mod git;
+mod print;
+
+type Result<T = ()> = std::io::Result<T>;
+
+fn main() {
+    let _ = args::parse().run(std::io::stdout().lock());
+}
+
+#[cfg(test)]
+mod tests {
+    macro_rules! style {
     (reset $(, $($param: expr),*)?) => {
         concat!("[m" $(, $($param),*)?)
     };
@@ -26,136 +39,124 @@ macro_rules! style {
     };
 }
 
-macro_rules! color {
-    (black) => {
-        "0"
-    };
-    (red) => {
-        "1"
-    };
-    (green) => {
-        "2"
-    };
-    (yellow) => {
-        "3"
-    };
-    (blue) => {
-        "4"
-    };
-    (magenta) => {
-        "5"
-    };
-    (cyan) => {
-        "6"
-    };
-    (white) => {
-        "7"
-    };
-    ([$param: literal]) => {
-        concat!("8;5;", $param)
-    };
-    ([$r: literal, $g: literal, $b: literal]) => {
-        concat!("8;2;", $r, ";", $g, ";", $b)
-    };
-    (reset) => {
-        "9"
-    };
-}
+    macro_rules! color {
+        (black) => {
+            "0"
+        };
+        (red) => {
+            "1"
+        };
+        (green) => {
+            "2"
+        };
+        (yellow) => {
+            "3"
+        };
+        (blue) => {
+            "4"
+        };
+        (magenta) => {
+            "5"
+        };
+        (cyan) => {
+            "6"
+        };
+        (white) => {
+            "7"
+        };
+        ([$param: literal]) => {
+            concat!("8;5;", $param)
+        };
+        ([$r: literal, $g: literal, $b: literal]) => {
+            concat!("8;2;", $r, ";", $g, ";", $b)
+        };
+        (reset) => {
+            "9"
+        };
+    }
 
-macro_rules! symbol {
-    (error) => {
-        "✘"
-    };
-    (jobs) => {
-        ""
-    };
-    (pkg) => {
-        "󰏓"
-    };
-    (direnv) => {
-        ""
-    };
-    (flake) => {
-        "󱄅"
-    };
-    (python) => {
-        "󰌠"
-    };
-    (new) => {
-        ""
-    };
-    (branch) => {
-        ""
-    };
-    (ref) => {
-        "➦"
-    };
-    (merge) => {
-        ""
-    };
-    (bisect) => {
-        ""
-    };
-    (rebase) => {
-        ""
-    };
-    (cherry) => {
-        ""
-    };
-    (revert) => {
-        ""
-    };
-    (mailbox) => {
-        ""
-    };
-    (ahead) => {
-        "󰁝"
-    };
-    (behind) => {
-        "󰁅"
-    };
-    (local) => {
-        "󰁂"
-    };
-    (gone) => {
-        "󰁜"
-    };
-    (warn) => {
-        "󱈸"
-    };
-    (div) => {
-        ""
-    };
-    (div thin) => {
-        ""
-    };
-    (slant) => {
-        ""
-    };
-    (slant thin) => {
-        ""
-    };
-}
+    macro_rules! symbol {
+        (error) => {
+            "✘"
+        };
+        (jobs) => {
+            ""
+        };
+        (pkg) => {
+            "󰏓"
+        };
+        (direnv) => {
+            ""
+        };
+        (flake) => {
+            "󱄅"
+        };
+        (python) => {
+            "󰌠"
+        };
+        (new) => {
+            ""
+        };
+        (branch) => {
+            ""
+        };
+        (ref) => {
+            "➦"
+        };
+        (merge) => {
+            ""
+        };
+        (bisect) => {
+            ""
+        };
+        (rebase) => {
+            ""
+        };
+        (cherry) => {
+            ""
+        };
+        (revert) => {
+            ""
+        };
+        (mailbox) => {
+            ""
+        };
+        (ahead) => {
+            "󰁝"
+        };
+        (behind) => {
+            "󰁅"
+        };
+        (local) => {
+            "󰁂"
+        };
+        (gone) => {
+            "󰁜"
+        };
+        (warn) => {
+            "󱈸"
+        };
+        (div) => {
+            ""
+        };
+        (div thin) => {
+            ""
+        };
+        (slant) => {
+            ""
+        };
+        (slant thin) => {
+            ""
+        };
+    }
 
-mod args;
-mod command;
-mod compat;
-mod git;
-mod print;
-
-type Result<T = ()> = std::io::Result<T>;
-
-fn main() {
-    let _ = args::parse().run(std::io::stdout().lock());
-}
-
-#[cfg(test)]
-fn test<F>(testing: F) -> String
-where
-    F: FnOnce(print::Ansi<&mut Vec<u8>>) -> crate::Result,
-{
-    let mut buffer = String::new();
-    let printer = unsafe { print::Ansi::new(buffer.as_mut_vec()) };
-    testing(printer).unwrap();
-    buffer
+    fn test<F>(testing: F) -> String
+    where
+        F: FnOnce(super::print::Ansi<&mut Vec<u8>>) -> crate::Result,
+    {
+        let mut buffer = String::new();
+        let printer = unsafe { super::print::Ansi::new(buffer.as_mut_vec()) };
+        testing(printer).unwrap();
+        buffer
+    }
 }

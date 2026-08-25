@@ -20,25 +20,33 @@ where
     P: Printer,
     Env: EnvFetcher,
 {
-    printer.fg(Color::Reset).bg(Color::Black);
-
     if error {
-        printer.fg(Color::Red).txt_gap(Symbol::Error)?;
+        printer
+            .bg(Color::Black)
+            .fg(Color::Red)
+            .txt_gap(Symbol::Error)?;
     }
 
     if jobs {
-        printer.fg(Color::Magenta).txt_gap(Symbol::Jobs)?;
+        printer
+            .bg(Color::Black)
+            .fg(Color::Magenta)
+            .txt_gap(Symbol::Jobs)?;
     }
 
     let direnv = enver.direnv();
     let nixshell = enver.nixshell();
 
     if nixshell == Nixshell::Generic && !matches!(direnv, Some((_, true))) {
-        printer.fg(Color::Cyan).txt_gap(Symbol::Flake)?;
+        printer
+            .bg(Color::Black)
+            .fg(Color::Cyan)
+            .txt_gap(Symbol::Flake)?;
     }
 
     if let Some(host) = host {
         printer
+            .bg(Color::Black)
             .fg(Color::Reset)
             .txt(&host)?
             .fg(Color::Reset)
@@ -55,12 +63,12 @@ where
 
     if let Some((direnv, active)) = direnv {
         if active {
-            printer.div(Div::ChevronLeft, Color::Green)?;
+            printer.fg(Color::Green);
         } else {
-            printer.div(Div::ChevronLeft, Color::Red)?;
+            printer.fg(Color::Red);
         }
 
-        printer.fg(Color::Black);
+        printer.div(Div::ChevronLeft, Color::Black)?;
 
         if let Some(inner) = direnv.rsplit(std::path::MAIN_SEPARATOR).next() {
             printer.txt_gap(inner)?;
@@ -70,7 +78,9 @@ where
     }
 
     if let Some(venv) = enver.venv() {
-        printer.div(Div::ChevronLeft, Color::Cyan)?.fg(Color::Black);
+        printer
+            .fg(Color::Black)
+            .div(Div::ChevronLeft, Color::Cyan)?;
 
         if let Some(inner) = venv.rsplit(std::path::MAIN_SEPARATOR).next() {
             printer.txt_gap(inner)?;
@@ -83,7 +93,9 @@ where
 
     if let Some(ref pwd) = pwd {
         if let Some(pwd) = pwd.to_str() {
-            printer.div(Div::ChevronLeft, Color::Blue)?.fg(Color::Black);
+            printer
+                .fg(Color::Black)
+                .div(Div::ChevronLeft, Color::Blue)?;
 
             if let Some(pwd) = enver.home().and_then(|home| pwd.strip_prefix(&home)) {
                 printer.gap()?.txt("~")?.txt(pwd)?.gap()?;
@@ -92,6 +104,8 @@ where
             }
         }
         render_git(&mut printer, git::parse(pwd))?;
+    } else {
+        printer.bg(Color::Blue).gap()?;
     }
 
     printer
@@ -109,16 +123,16 @@ where
         git::Repo::None => {}
         git::Repo::Error => {
             printer
-                .div(Div::ChevronLeft, Color::Red)?
                 .fg(Color::Black)
+                .div(Div::ChevronLeft, Color::Red)?
                 .txt(Symbol::Warn)?;
         }
         git::Repo::Regular(head, sync, changes) => {
             if changes.clean() {
                 render_sync(printer, sync)?;
                 printer
-                    .div(Div::ChevronLeft, Color::Green)?
                     .fg(Color::Black)
+                    .div(Div::ChevronLeft, Color::Green)?
                     .gap()?
                     .txt(Symbol::Branch)?
                     .txt(&head)?
@@ -133,14 +147,14 @@ where
                     }
                 ) {
                     printer
-                        .div(Div::ChevronLeft, Color::Black)?
                         .fg(Color::Reset)
+                        .div(Div::ChevronLeft, Color::Black)?
                         .txt_gap(Symbol::SlantTop)?;
                     render_sync(printer, sync)?;
                 }
                 printer
-                    .div(Div::ChevronLeft, Color::Yellow)?
                     .fg(Color::Black)
+                    .div(Div::ChevronLeft, Color::Yellow)?
                     .gap()?
                     .txt(Symbol::Branch)?
                     .txt(&head)?
@@ -150,8 +164,8 @@ where
         git::Repo::Detached(head, changes) => {
             render_changes(printer, changes)?;
             printer
-                .div(Div::ChevronLeft, Color::Magenta)?
                 .fg(Color::Black)
+                .div(Div::ChevronLeft, Color::Magenta)?
                 .gap()?
                 .txt(Symbol::Ref)?
                 .txt(&head)?
@@ -160,8 +174,8 @@ where
         git::Repo::Pending(head, pending, changes) => {
             render_changes(printer, changes)?;
             printer
-                .div(Div::ChevronLeft, Color::Cyan)?
                 .fg(Color::Black)
+                .div(Div::ChevronLeft, Color::Cyan)?
                 .gap()?
                 .txt(Symbol::Branch)?
                 .txt(&head)?
@@ -170,8 +184,8 @@ where
         git::Repo::New(changes) => {
             render_changes(printer, changes)?;
             printer
-                .div(Div::ChevronLeft, Color::Cyan)?
                 .fg(Color::Black)
+                .div(Div::ChevronLeft, Color::Cyan)?
                 .txt_gap(Symbol::New)?;
         }
     }

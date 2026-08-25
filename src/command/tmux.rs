@@ -80,7 +80,7 @@ where
     match repo {
         git::Repo::None | git::Repo::Error => Ok(()),
         git::Repo::Regular(head, sync, changes) => {
-            write!(out, style!(fg = color!(237), symbol!(slant)))?;
+            crate::tests::write!(out, style!(fg = color!(237), symbol!(slant)))?;
             write!(
                 out,
                 style!(fg = color!(magenta), bg = color!(237), " ", symbol!(branch))

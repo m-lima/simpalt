@@ -134,6 +134,7 @@ pub trait Printer {
     fn div(&mut self, div: Div, into: Color) -> std::io::Result<&mut Self>;
     fn gap(&mut self) -> std::io::Result<&mut Self>;
     fn txt<S: std::fmt::Display>(&mut self, txt: S) -> std::io::Result<&mut Self>;
+    fn invalidate(&mut self) -> &mut Self;
     fn flush(&mut self) -> std::io::Result<()>;
 
     fn txt_gap<S: std::fmt::Display>(&mut self, txt: S) -> std::io::Result<&mut Self> {

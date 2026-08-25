@@ -24,9 +24,20 @@ where
     }
 
     fn div(&mut self, div: Div, into: Color) -> std::io::Result<&mut Self> {
-        self.fg = self.bg;
-        self.bg = into;
-        self.txt(div)
+        if into == self.last_bg {
+            Ok(self)
+        } else {
+            self.bg = into;
+            if let Some(last_bg) = self.last_bg {
+                let tmp = self.fg;
+                self.fg = last_bg;
+                self.txt(div)?;
+                self.fg = tmp;
+                Ok(self)
+            } else {
+                self.txt("")
+            }
+        }
     }
 
     fn gap(&mut self) -> std::io::Result<&mut Self> {
@@ -79,6 +90,12 @@ where
         }
         self.has_gap = false;
         Ok(self)
+    }
+
+    fn invalidate(&mut self) -> &mut Self {
+        self.last_fg = None;
+        self.last_bg = None;
+        self
     }
 
     fn flush(&mut self) -> std::io::Result<()> {

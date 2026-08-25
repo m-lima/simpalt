@@ -25,9 +25,17 @@ where
     }
 
     fn div(&mut self, div: Div, into: Color) -> std::io::Result<&mut Self> {
-        self.fg = self.bg;
-        self.bg = into;
-        self.txt(div)
+        if into == self.last_bg {
+            Ok(self)
+        } else {
+            self.bg = into;
+            if let Some(last_bg) = self.last_bg {
+                self.fg = last_bg;
+                self.txt(div)
+            } else {
+                self.txt("")
+            }
+        }
     }
 
     fn gap(&mut self) -> std::io::Result<&mut Self> {
@@ -82,6 +90,12 @@ where
         Ok(self)
     }
 
+    fn invalidate(&mut self) -> &mut Self {
+        self.last_fg = None;
+        self.last_bg = None;
+        self
+    }
+
     fn flush(&mut self) -> std::io::Result<()> {
         self.out.flush()
     }
@@ -91,10 +105,10 @@ impl<Out> Win<Out>
 where
     Out: std::io::Write,
 {
-    pub fn new<S: ToString>(out: Out, sub: S) -> Self {
+    pub fn new<S: Into<String>>(out: Out, sub: S) -> Self {
         Self {
             out,
-            sub: sub.to_string(),
+            sub: sub.into(),
             fg: Color::Reset,
             bg: Color::Reset,
             last_fg: None,
@@ -105,7 +119,13 @@ where
 
     fn color(&mut self, fg: bool) -> std::io::Result<()> {
         match if fg { self.fg } else { self.bg } {
-            Color::Black => self.out.write_all(b"0"),
+            Color::Black => {
+                if fg {
+                    self.out.write_all(b"0")
+                } else {
+                    self.out.write_all(self.sub.as_bytes())
+                }
+            }
             Color::Red => self.out.write_all(b"1"),
             Color::Green => self.out.write_all(b"2"),
             Color::Yellow => self.out.write_all(b"3"),
