@@ -4,7 +4,14 @@ use simpalt::{
     print::{Color, Div, Printer, Symbol},
 };
 
-pub fn render<P>(mut printer: P, pwd: String) -> Result
+pub fn render<P>(printer: P, pwd: String) -> Result
+where
+    P: Printer,
+{
+    render_inner(printer, git::parse(&std::path::PathBuf::from(pwd)))
+}
+
+pub fn render_inner<P>(mut printer: P, repo: git::Repo) -> Result
 where
     P: Printer,
 {
@@ -20,11 +27,10 @@ where
             .bg(Color::Vga(237))
             .txt(Symbol::Branch)?
             .fg(Color::Vga(246))
-            .txt(head)?
-            .gap()
+            .txt(head)
     }
 
-    match git::parse(&std::path::PathBuf::from(pwd)) {
+    match repo {
         git::Repo::None | git::Repo::Error => return Ok(()),
         git::Repo::Regular(head, sync, changes) => {
             add_branch(&mut printer, head)?;
@@ -58,10 +64,7 @@ where
         || changes.modified > 0
         || changes.conflicted > 0
     {
-        printer
-            .gap()?
-            .div(Div::SlantTopRight, Color::Vga(236))?
-            .gap()?;
+        printer.gap()?.div(Div::SlantTopRight, Color::Vga(236))?;
         true
     } else {
         false
