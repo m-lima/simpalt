@@ -1,3 +1,5 @@
+use crate::git::long as git;
+
 #[derive(Copy, Clone, Eq, PartialEq)]
 pub enum Color {
     Black,
@@ -11,6 +13,36 @@ pub enum Color {
     Vga(u8),
     Rgb { r: u8, g: u8, b: u8 },
     Reset,
+}
+
+impl std::fmt::Display for Color {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        use std::fmt::Write as _;
+
+        match self {
+            Color::Black => f.write_char('0'),
+            Color::Red => f.write_char('1'),
+            Color::Green => f.write_char('2'),
+            Color::Yellow => f.write_char('3'),
+            Color::Blue => f.write_char('4'),
+            Color::Magenta => f.write_char('5'),
+            Color::Cyan => f.write_char('6'),
+            Color::White => f.write_char('7'),
+            Color::Vga(c) => {
+                f.write_str("8;5;")?;
+                c.fmt(f)
+            }
+            Color::Rgb { r, g, b } => {
+                f.write_str("8;2;")?;
+                r.fmt(f)?;
+                f.write_char(';')?;
+                g.fmt(f)?;
+                f.write_char(';')?;
+                b.fmt(f)
+            }
+            Color::Reset => f.write_char('9'),
+        }
+    }
 }
 
 impl PartialEq<Option<Color>> for Color {
@@ -92,6 +124,19 @@ impl Symbol {
             Symbol::ChevronLeft => "",
             Symbol::SlantTop => "",
             Symbol::SlantBottom => "╱",
+        }
+    }
+}
+
+impl From<git::Pending> for Symbol {
+    fn from(value: git::Pending) -> Self {
+        match value {
+            git::Pending::Merge => Self::Merge,
+            git::Pending::Revert => Self::Revert,
+            git::Pending::Cherry => Self::Cherry,
+            git::Pending::Bisect => Self::Bisect,
+            git::Pending::Rebase => Self::Rebase,
+            git::Pending::Mailbox => Self::Mailbox,
         }
     }
 }

@@ -1,24 +1,12 @@
 use super::{Color, Div, Result};
 
-#[derive(Copy, Clone)]
+#[derive(Clone, Default)]
 pub struct State {
-    pub fg: Color,
-    pub bg: Color,
+    pub fg: Option<Color>,
+    pub bg: Option<Color>,
     pub last_fg: Option<Color>,
     pub last_bg: Option<Color>,
     pub has_gap: bool,
-}
-
-impl Default for State {
-    fn default() -> Self {
-        Self {
-            fg: Color::Reset,
-            bg: Color::Reset,
-            last_fg: None,
-            last_bg: None,
-            has_gap: false,
-        }
-    }
 }
 
 #[allow(private_bounds, clippy::missing_errors_doc)]
@@ -30,13 +18,13 @@ pub trait Printer: sealed::Printer {
 
     #[inline]
     fn fg(&mut self, color: Color) -> &mut Self {
-        self.state().fg = color;
+        self.state().fg = Some(color);
         self
     }
 
     #[inline]
     fn bg(&mut self, color: Color) -> &mut Self {
-        self.state().bg = color;
+        self.state().bg = Some(color);
         self
     }
 
@@ -49,27 +37,61 @@ pub trait Printer: sealed::Printer {
     }
 
     fn div(&mut self, div: Div, into: Color) -> Result<&mut Self> {
-        if into == self.state().last_bg {
-            Ok(self)
-        } else {
-            self.state().bg = into;
-            if let Some(last_bg) = self.state().last_bg {
-                let old_fg = self.state().fg;
-                self.state().fg = last_bg;
-                self.txt(div)?;
-                self.state().fg = old_fg;
-                Ok(self)
-            } else {
-                self.txt("")
+        let State { fg, last_bg, .. } = *self.state();
+
+        match div {
+            Div::ChevronLeft | Div::SlantTopLeft | Div::SlantBottomLeft => {
+                if let Some(last_bg) = last_bg {
+                    if last_bg != into {
+                        self.write(Some(last_bg), Some(into), div)?;
+                        let state = self.state();
+                        state.has_gap = false;
+                        state.last_fg = Some(last_bg);
+                        state.last_bg = Some(into);
+                        state.bg = Some(into);
+                    }
+                } else {
+                    self.state().bg = Some(into);
+                }
+            }
+            Div::ChevronRight | Div::SlantTopRight | Div::SlantBottomRight => {
+                self.write((into != fg).then_some(into), None, div)?;
+                let state = self.state();
+                state.has_gap = false;
+                state.last_fg = Some(into);
+                state.bg = Some(into);
             }
         }
+
+        Ok(self)
     }
 
     #[inline]
     fn gap(&mut self) -> Result<&mut Self> {
-        if !self.state().has_gap {
-            self.txt(" ")?;
-            self.state().has_gap = true;
+        let State {
+            fg,
+            bg,
+            last_fg,
+            last_bg,
+            has_gap,
+            ..
+        } = *self.state();
+        if !has_gap {
+            if Color::Reset == fg && fg == bg {
+                self.write(fg, bg, " ")?;
+            } else {
+                self.write(
+                    fg.filter(|fg| *fg != last_fg),
+                    bg.filter(|bg| *bg != last_bg),
+                    " ",
+                )?;
+            }
+
+            let state = self.state();
+
+            state.last_fg = fg;
+            state.last_bg = bg;
+            state.has_gap = true;
         }
         Ok(self)
     }
@@ -82,67 +104,46 @@ pub trait Printer: sealed::Printer {
     }
 
     fn txt<S: std::fmt::Display>(&mut self, txt: S) -> Result<&mut Self> {
-        let mut state = *self.state();
+        let State {
+            fg,
+            bg,
+            last_fg,
+            last_bg,
+            ..
+        } = *self.state();
 
-        match (state.fg == state.last_fg, state.bg == state.last_bg) {
-            (true, true) => {
-                self.write_plain(txt)?;
-            }
-            (false, true) => {
-                if state.fg == Color::Reset && state.bg == Color::Reset {
-                    self.write_reset(txt)?;
-                } else {
-                    self.write_fg(txt)?;
-                }
-                state.last_fg = Some(state.fg);
-            }
-            (true, false) => {
-                if state.fg == Color::Reset && state.bg == Color::Reset {
-                    self.write_reset(txt)?;
-                } else {
-                    self.write_bg(txt)?;
-                }
-                state.last_bg = Some(state.bg);
-            }
-            (false, false) => {
-                match (state.fg == Color::Reset, state.bg == Color::Reset) {
-                    (true, true) => {
-                        self.write_reset(txt)?;
-                    }
-                    (false, true) => {
-                        self.write_reset_and_fg(txt)?;
-                    }
-                    (true, false) => {
-                        self.write_reset_and_bg(txt)?;
-                    }
-                    (false, false) => {
-                        self.write(txt)?;
-                    }
-                }
-                state.last_fg = Some(state.fg);
-                state.last_bg = Some(state.bg);
-            }
+        if Color::Reset == fg && fg == bg {
+            self.write(fg, bg, txt)?;
+        } else {
+            self.write(
+                fg.filter(|fg| *fg != last_fg),
+                bg.filter(|bg| *bg != last_bg),
+                txt,
+            )?;
         }
+
+        let state = self.state();
+        state.last_fg = fg;
+        state.last_bg = bg;
         state.has_gap = false;
 
-        *self.state() = state;
         Ok(self)
     }
 }
 
 pub mod sealed {
-    use super::{Result, State};
+
+    use super::{Color, Result, State};
 
     pub(crate) trait Printer {
         fn flush(&mut self) -> Result;
         fn state(&mut self) -> &mut State;
-        fn write_plain<S: std::fmt::Display>(&mut self, txt: S) -> Result;
-        fn write_reset<S: std::fmt::Display>(&mut self, txt: S) -> Result;
-        fn write_fg<S: std::fmt::Display>(&mut self, txt: S) -> Result;
-        fn write_bg<S: std::fmt::Display>(&mut self, txt: S) -> Result;
-        fn write_reset_and_fg<S: std::fmt::Display>(&mut self, txt: S) -> Result;
-        fn write_reset_and_bg<S: std::fmt::Display>(&mut self, txt: S) -> Result;
-        fn write<S: std::fmt::Display>(&mut self, txt: S) -> Result;
+        fn write<S: std::fmt::Display>(
+            &mut self,
+            fg: Option<Color>,
+            bg: Option<Color>,
+            txt: S,
+        ) -> Result;
     }
 
     impl<P> super::Printer for P where P: Printer {}

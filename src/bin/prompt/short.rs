@@ -76,7 +76,7 @@ where
         chevron!(printer, Blue);
     }
 
-    printer.fg(Color::Reset).bg(Color::Reset).gap()?.flush()
+    printer.fg(Color::Reset).gap()?.flush()
 }
 
 fn pwd_string(path: &std::path::PathBuf, enver: &impl EnvFetcher) -> String {

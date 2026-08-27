@@ -183,7 +183,7 @@ where
                 .gap()?
                 .txt(Symbol::Branch)?
                 .txt(&head)?
-                .txt_gap(pending_symbol(pending))?;
+                .txt_gap(Symbol::from(pending))?;
         }
         git::Repo::New(changes) => {
             render_changes(printer, changes)?;
@@ -278,17 +278,6 @@ where
     }
 
     Ok(())
-}
-
-const fn pending_symbol(pending: git::Pending) -> Symbol {
-    match pending {
-        git::Pending::Merge => Symbol::Merge,
-        git::Pending::Revert => Symbol::Revert,
-        git::Pending::Cherry => Symbol::Cherry,
-        git::Pending::Bisect => Symbol::Bisect,
-        git::Pending::Rebase => Symbol::Rebase,
-        git::Pending::Mailbox => Symbol::Mailbox,
-    }
 }
 
 #[derive(Default, Debug, Clone, PartialEq)]
@@ -386,7 +375,7 @@ mod tests {
         let expected = expect(
             &result,
             [
-                "[;44m",
+                "[44m",
                 " ",
                 // Missing error
                 // Missing jobs

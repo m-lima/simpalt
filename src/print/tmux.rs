@@ -19,8 +19,8 @@ where
         }
     }
 
-    fn color(&mut self, fg: bool) -> std::io::Result<()> {
-        match if fg { self.state.fg } else { self.state.bg } {
+    fn color(&mut self, color: Color) -> std::io::Result<()> {
+        match color {
             Color::Black => self.out.write_all(b"black"),
             Color::Red => self.out.write_all(b"red"),
             Color::Green => self.out.write_all(b"green"),
@@ -48,41 +48,32 @@ where
         &mut self.state
     }
 
-    fn write_plain<S: std::fmt::Display>(&mut self, txt: S) -> Result {
-        write!(self.out, "{txt}")
-    }
-
-    fn write_reset<S: std::fmt::Display>(&mut self, txt: S) -> Result {
-        write!(self.out, "#[none]{txt}")
-    }
-
-    fn write_fg<S: std::fmt::Display>(&mut self, txt: S) -> Result {
-        self.out.write_all(b"#[fg=")?;
-        self.color(true)?;
-        write!(self.out, "]{txt}")
-    }
-
-    fn write_bg<S: std::fmt::Display>(&mut self, txt: S) -> Result {
-        self.out.write_all(b"#[bg=")?;
-        self.color(false)?;
-        write!(self.out, "]{txt}")
-    }
-
-    #[inline]
-    fn write_reset_and_fg<S: std::fmt::Display>(&mut self, txt: S) -> Result {
-        self.write(txt)
-    }
-
-    #[inline]
-    fn write_reset_and_bg<S: std::fmt::Display>(&mut self, txt: S) -> Result {
-        self.write(txt)
-    }
-
-    fn write<S: std::fmt::Display>(&mut self, txt: S) -> Result {
-        self.out.write_all(b"#[fg=")?;
-        self.color(true)?;
-        self.out.write_all(b",bg=")?;
-        self.color(false)?;
-        write!(self.out, "]{txt}")
+    fn write<S: std::fmt::Display>(
+        &mut self,
+        fg: Option<Color>,
+        bg: Option<Color>,
+        txt: S,
+    ) -> Result {
+        match (fg, bg) {
+            (None, None) => write!(self.out, "{txt}"),
+            (Some(fg), None) => {
+                self.out.write_all(b"#[fg=")?;
+                self.color(fg)?;
+                write!(self.out, "]{txt}")
+            }
+            (None, Some(bg)) => {
+                self.out.write_all(b"#[bg=")?;
+                self.color(bg)?;
+                write!(self.out, "]{txt}")
+            }
+            (Some(Color::Reset), Some(Color::Reset)) => write!(self.out, "#[none]{txt}"),
+            (Some(fg), Some(bg)) => {
+                self.out.write_all(b"#[fg=")?;
+                self.color(fg)?;
+                self.out.write_all(b",bg=")?;
+                self.color(bg)?;
+                write!(self.out, "]{txt}")
+            }
+        }
     }
 }

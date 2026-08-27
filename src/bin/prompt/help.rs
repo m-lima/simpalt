@@ -11,13 +11,11 @@ where
         })
         .unwrap_or_else(|| String::from(env!("CARGO_BIN_NAME")));
 
-    writeln!(out, "Usage: {bin} [ACTION] [FLAGS...]")?;
+    writeln!(out, "Usage: {bin} [OPTIONS...]")?;
     writeln!(out)?;
-    writeln!(out, "Action:")?;
-    writeln!(out, "  h         Print this help message")?;
-    writeln!(out, "  v         Print the version")?;
-    writeln!(out)?;
-    writeln!(out, "Flags:")?;
+    writeln!(out, "Options:")?;
+    writeln!(out, "  -h        Print this help message")?;
+    writeln!(out, "  -v        Print the version")?;
     writeln!(out, "  -m <MODE> Select in which mode to print")?;
     writeln!(out, "  -l        Print using the long format")?;
     writeln!(out, "  -e        Last command was an error")?;

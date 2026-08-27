@@ -16,8 +16,8 @@ pub fn parse(mut args: std::env::Args) -> Result<Option<Args>> {
 
     while let Some(arg) = args.next() {
         match arg.as_str() {
-            "h" => return Ok(None),
-            "v" => {
+            "-h" => return Ok(None),
+            "-v" => {
                 if state.show_version {
                     return Err(std::io::Error::other("Version specified twice"));
                 }
