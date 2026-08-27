@@ -61,7 +61,7 @@ where
     }
 
     if let Some(host) = host {
-        printer.fg(Color::Reset).txt(&host)?.invalidate();
+        printer.fg(Color::Reset).gap()?.txt(&host)?.invalidate();
     }
 
     printer.fg(Color::Reset).bg(Color::Black);
@@ -195,7 +195,7 @@ impl EnvFetcher for SysEnv {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{test, test_from};
+    use crate::tests::{expect, test, test_from};
 
     macro_rules! tip {
         ($color: literal) => {{
@@ -207,7 +207,8 @@ mod tests {
             tip.push_str("[m");
             tip.push_str(" ");
             tip
-        }};
+        }
+        .as_str()};
         (red) => {
             tip!(1)
         };
@@ -226,20 +227,6 @@ mod tests {
         (cyan) => {
             tip!(6)
         };
-    }
-
-    macro_rules! expected {
-        ($part: expr) => {{
-            let mut expected = String::new();
-            expected.push_str(&$part);
-            expected
-        }};
-        ($part: expr, $($rest: expr),*) => {{
-            let mut expected = String::new();
-            expected.push_str($part);
-            expected.push_str(expected!($($rest),*).as_str());
-            expected
-        }};
     }
 
     const HOST: &str = "[31mH";
@@ -278,18 +265,18 @@ mod tests {
     #[test]
     fn all_empty() {
         let result = test(|s| render_inner(s, None, false, false, &MockEnv::default()));
-
-        let expected = expected!(
-            "[;40m",
-            " ",
-            // Missing statuses
-            // Missing HOST
-            // Missing PWD
-            tip!(blue)
+        let expected = expect(
+            &result,
+            [
+                "[;40m",
+                " ",
+                // Missing statuses
+                // Missing HOST
+                // Missing PWD
+                tip!(blue),
+            ],
         );
 
-        println!("{result}");
-        println!("{expected}");
         assert_eq!(result, expected);
     }
 
@@ -307,22 +294,23 @@ mod tests {
                 },
             )
         });
-        let expected = expected!(
-            "[31;40m",
-            " ",
-            Symbol::Error.str(),
-            " ",
-            "[35m",
-            Symbol::Jobs.str(),
-            " ",
-            // Missing HOST
-            "[39m",
-            "/",
-            " ",
-            tip!(blue)
+        let expected = expect(
+            &result,
+            [
+                "[31;40m",
+                " ",
+                Symbol::Error.str(),
+                " ",
+                "[35m",
+                Symbol::Jobs.str(),
+                " ",
+                // Missing HOST
+                "[39m",
+                "/",
+                " ",
+                tip!(blue),
+            ],
         );
-        println!("{result}");
-        println!("{expected}");
         assert_eq!(result, expected);
     }
 
@@ -341,20 +329,21 @@ mod tests {
                 },
             )
         });
-        let expected = expected!(
-            "[31;40m",
-            " ",
-            Symbol::Error.str(),
-            " ",
-            // Missing jobs
-            // Missing HOST
-            "[39m",
-            "path",
-            " ",
-            tip!(blue)
+        let expected = expect(
+            &result,
+            [
+                "[31;40m",
+                " ",
+                Symbol::Error.str(),
+                " ",
+                // Missing jobs
+                // Missing HOST
+                "[39m",
+                "path",
+                " ",
+                tip!(blue),
+            ],
         );
-        println!("{result}");
-        println!("{expected}");
         assert_eq!(result, expected);
     }
 
@@ -373,17 +362,18 @@ mod tests {
                 },
             )
         });
-        let expected = expected!(
-            "[;40m",
-            " ",
-            // Missing statuses
-            // Missing HOST
-            "~",
-            " ",
-            tip!(blue)
+        let expected = expect(
+            &result,
+            [
+                "[;40m",
+                " ",
+                // Missing statuses
+                // Missing HOST
+                "~",
+                " ",
+                tip!(blue),
+            ],
         );
-        println!("{result}");
-        println!("{expected}");
         assert_eq!(result, expected);
     }
 
@@ -404,33 +394,34 @@ mod tests {
                 },
             )
         });
-        let expected = expected!(
-            "[31;40m",
-            " ",
-            Symbol::Error.str(),
-            " ",
-            "[35m",
-            Symbol::Jobs.str(),
-            " ",
-            "[33m",
-            Symbol::Package.str(),
-            " ",
-            "[31m",
-            Symbol::Direnv.str(),
-            " ",
-            "[32m",
-            Symbol::Python.str(),
-            " ",
-            "[39m",
-            HOST,
-            "[;40m",
-            " ",
-            "~",
-            " ",
-            tip!(blue)
+        let expected = expect(
+            &result,
+            [
+                "[31;40m",
+                " ",
+                Symbol::Error.str(),
+                " ",
+                "[35m",
+                Symbol::Jobs.str(),
+                " ",
+                "[33m",
+                Symbol::Package.str(),
+                " ",
+                "[31m",
+                Symbol::Direnv.str(),
+                " ",
+                "[32m",
+                Symbol::Python.str(),
+                " ",
+                "[39m",
+                HOST,
+                "[;40m",
+                " ",
+                "~",
+                " ",
+                tip!(blue),
+            ],
         );
-        println!("{result}");
-        println!("{expected}");
         assert_eq!(result, expected);
     }
 
@@ -451,27 +442,28 @@ mod tests {
                 },
             )
         });
-        let expected = expected!(
-            "[31;40m",
-            " ",
-            Symbol::Error.str(),
-            " ",
-            "[35m",
-            Symbol::Jobs.str(),
-            " ",
-            "[31m",
-            Symbol::Direnv.str(),
-            " ",
-            "[39m",
-            HOST,
-            "[;40m",
-            " ",
-            "~",
-            " ",
-            tip!(blue)
+        let expected = expect(
+            &result,
+            [
+                "[31;40m",
+                " ",
+                Symbol::Error.str(),
+                " ",
+                "[35m",
+                Symbol::Jobs.str(),
+                " ",
+                "[31m",
+                Symbol::Direnv.str(),
+                " ",
+                "[39m",
+                HOST,
+                "[;40m",
+                " ",
+                "~",
+                " ",
+                tip!(blue),
+            ],
         );
-        println!("{result}");
-        println!("{expected}");
         assert_eq!(result, expected);
     }
 
@@ -492,27 +484,28 @@ mod tests {
                 },
             )
         });
-        let expected = expected!(
-            "[31;40m",
-            " ",
-            Symbol::Error.str(),
-            " ",
-            "[35m",
-            Symbol::Jobs.str(),
-            " ",
-            "[32m",
-            Symbol::Direnv.str(),
-            " ",
-            "[39m",
-            HOST,
-            "[;40m",
-            " ",
-            "~",
-            " ",
-            tip!(blue)
+        let expected = expect(
+            &result,
+            [
+                "[31;40m",
+                " ",
+                Symbol::Error.str(),
+                " ",
+                "[35m",
+                Symbol::Jobs.str(),
+                " ",
+                "[32m",
+                Symbol::Direnv.str(),
+                " ",
+                "[39m",
+                HOST,
+                "[;40m",
+                " ",
+                "~",
+                " ",
+                tip!(blue),
+            ],
         );
-        println!("{result}");
-        println!("{expected}");
         assert_eq!(result, expected);
     }
 
@@ -533,27 +526,28 @@ mod tests {
                 },
             )
         });
-        let expected = expected!(
-            "[31;40m",
-            " ",
-            Symbol::Error.str(),
-            " ",
-            "[35m",
-            Symbol::Jobs.str(),
-            " ",
-            "[33m",
-            Symbol::Package.str(),
-            " ",
-            "[39m",
-            HOST,
-            "[;40m",
-            " ",
-            "~",
-            " ",
-            tip!(blue)
+        let expected = expect(
+            &result,
+            [
+                "[31;40m",
+                " ",
+                Symbol::Error.str(),
+                " ",
+                "[35m",
+                Symbol::Jobs.str(),
+                " ",
+                "[33m",
+                Symbol::Package.str(),
+                " ",
+                "[39m",
+                HOST,
+                "[;40m",
+                " ",
+                "~",
+                " ",
+                tip!(blue),
+            ],
         );
-        println!("{result}");
-        println!("{expected}");
         assert_eq!(result, expected);
     }
 
@@ -574,27 +568,28 @@ mod tests {
                 },
             )
         });
-        let expected = expected!(
-            "[31;40m",
-            " ",
-            Symbol::Error.str(),
-            " ",
-            "[35m",
-            Symbol::Jobs.str(),
-            " ",
-            "[33m",
-            Symbol::Package.str(),
-            " ",
-            "[39m",
-            HOST,
-            "[;40m",
-            " ",
-            "~",
-            " ",
-            tip!(blue)
+        let expected = expect(
+            &result,
+            [
+                "[31;40m",
+                " ",
+                Symbol::Error.str(),
+                " ",
+                "[35m",
+                Symbol::Jobs.str(),
+                " ",
+                "[33m",
+                Symbol::Package.str(),
+                " ",
+                "[39m",
+                HOST,
+                "[;40m",
+                " ",
+                "~",
+                " ",
+                tip!(blue),
+            ],
         );
-        println!("{result}");
-        println!("{expected}");
         assert_eq!(result, expected);
     }
 
@@ -615,27 +610,28 @@ mod tests {
                 },
             )
         });
-        let expected = expected!(
-            "[31;40m",
-            " ",
-            Symbol::Error.str(),
-            " ",
-            "[35m",
-            Symbol::Jobs.str(),
-            " ",
-            "[32m",
-            Symbol::Direnv.str(),
-            " ",
-            "[39m",
-            HOST,
-            "[;40m",
-            " ",
-            "~",
-            " ",
-            tip!(blue)
+        let expected = expect(
+            &result,
+            [
+                "[31;40m",
+                " ",
+                Symbol::Error.str(),
+                " ",
+                "[35m",
+                Symbol::Jobs.str(),
+                " ",
+                "[32m",
+                Symbol::Direnv.str(),
+                " ",
+                "[39m",
+                HOST,
+                "[;40m",
+                " ",
+                "~",
+                " ",
+                tip!(blue),
+            ],
         );
-        println!("{result}");
-        println!("{expected}");
         assert_eq!(result, expected);
     }
 
@@ -656,30 +652,31 @@ mod tests {
                 },
             )
         });
-        let expected = expected!(
-            "[31;40m",
-            " ",
-            Symbol::Error.str(),
-            " ",
-            "[35m",
-            Symbol::Jobs.str(),
-            " ",
-            "[33m",
-            Symbol::Package.str(),
-            " ",
-            "[31m",
-            Symbol::Direnv.str(),
-            " ",
-            "[39m",
-            HOST,
-            "[;40m",
-            " ",
-            "~",
-            " ",
-            tip!(blue)
+        let expected = expect(
+            &result,
+            [
+                "[31;40m",
+                " ",
+                Symbol::Error.str(),
+                " ",
+                "[35m",
+                Symbol::Jobs.str(),
+                " ",
+                "[33m",
+                Symbol::Package.str(),
+                " ",
+                "[31m",
+                Symbol::Direnv.str(),
+                " ",
+                "[39m",
+                HOST,
+                "[;40m",
+                " ",
+                "~",
+                " ",
+                tip!(blue),
+            ],
         );
-        println!("{result}");
-        println!("{expected}");
         assert_eq!(result, expected);
     }
 
@@ -700,30 +697,31 @@ mod tests {
                 },
             )
         });
-        let expected = expected!(
-            "[31;40m",
-            " ",
-            Symbol::Error.str(),
-            " ",
-            "[35m",
-            Symbol::Jobs.str(),
-            " ",
-            "[33m",
-            Symbol::Package.str(),
-            " ",
-            "[32m",
-            Symbol::Direnv.str(),
-            " ",
-            "[39m",
-            HOST,
-            "[;40m",
-            " ",
-            "~",
-            " ",
-            tip!(blue)
+        let expected = expect(
+            &result,
+            [
+                "[31;40m",
+                " ",
+                Symbol::Error.str(),
+                " ",
+                "[35m",
+                Symbol::Jobs.str(),
+                " ",
+                "[33m",
+                Symbol::Package.str(),
+                " ",
+                "[32m",
+                Symbol::Direnv.str(),
+                " ",
+                "[39m",
+                HOST,
+                "[;40m",
+                " ",
+                "~",
+                " ",
+                tip!(blue),
+            ],
         );
-        println!("{result}");
-        println!("{expected}");
         assert_eq!(result, expected);
     }
 
@@ -744,191 +742,223 @@ mod tests {
                 },
             )
         });
-        let expected = expected!(
-            "[31;40m",
-            " ",
-            Symbol::Error.str(),
-            " ",
-            "[35m",
-            Symbol::Jobs.str(),
-            " ",
-            "[33m",
-            Symbol::Package.str(),
-            " ",
-            "[31m",
-            Symbol::Direnv.str(),
-            " ",
-            "[39m",
-            HOST,
-            "[;40m",
-            " ",
-            "~",
-            " ",
-            tip!(blue)
+        let expected = expect(
+            &result,
+            [
+                "[31;40m",
+                " ",
+                Symbol::Error.str(),
+                " ",
+                "[35m",
+                Symbol::Jobs.str(),
+                " ",
+                "[33m",
+                Symbol::Package.str(),
+                " ",
+                "[31m",
+                Symbol::Direnv.str(),
+                " ",
+                "[39m",
+                HOST,
+                "[;40m",
+                " ",
+                "~",
+                " ",
+                tip!(blue),
+            ],
         );
-        println!("{result}");
-        println!("{expected}");
         assert_eq!(result, expected);
     }
 
     #[test]
     fn git_sync_clean() {
-        assert_eq!(
-            test_from(Color::Reset, Color::Black, |mut s| render_git(
-                &mut s,
-                git::Repo::Clean(git::Sync::Behind)
-            )),
-            expected!("[31m", Symbol::Branch.str(), tip!(green))
-                .strip_suffix("[m ")
-                .unwrap()
+        let result = test_from(Color::Reset, Color::Black, |mut s| {
+            render_git(&mut s, git::Repo::Clean(git::Sync::Behind))
+        });
+        let expected = expect(
+            &result,
+            [
+                "[31m",
+                Symbol::Branch.str(),
+                tip!(green).strip_suffix("[m ").unwrap(),
+            ],
         );
-        assert_eq!(
-            test_from(Color::Reset, Color::Black, |mut s| render_git(
-                &mut s,
-                git::Repo::Clean(git::Sync::Ahead)
-            )),
-            expected!("[33m", Symbol::Branch.str(), tip!(green))
-                .strip_suffix("[m ")
-                .unwrap()
+        assert_eq!(result, expected);
+        let result = test_from(Color::Reset, Color::Black, |mut s| {
+            render_git(&mut s, git::Repo::Clean(git::Sync::Ahead))
+        });
+        let expected = expect(
+            &result,
+            [
+                "[33m",
+                Symbol::Branch.str(),
+                tip!(green).strip_suffix("[m ").unwrap(),
+            ],
         );
-        assert_eq!(
-            test_from(Color::Reset, Color::Black, |mut s| render_git(
-                &mut s,
-                git::Repo::Clean(git::Sync::Diverged)
-            )),
-            expected!("[35m", Symbol::Branch.str(), tip!(green))
-                .strip_suffix("[m ")
-                .unwrap()
+        assert_eq!(result, expected);
+        let result = test_from(Color::Reset, Color::Black, |mut s| {
+            render_git(&mut s, git::Repo::Clean(git::Sync::Diverged))
+        });
+        let expected = expect(
+            &result,
+            [
+                "[35m",
+                Symbol::Branch.str(),
+                tip!(green).strip_suffix("[m ").unwrap(),
+            ],
         );
-        assert_eq!(
-            test_from(Color::Reset, Color::Black, |mut s| render_git(
-                &mut s,
-                git::Repo::Clean(git::Sync::UpToDate)
-            )),
-            expected!(Symbol::Branch.str(), tip!(green))
-                .strip_suffix("[m ")
-                .unwrap()
+        assert_eq!(result, expected);
+        let result = test_from(Color::Reset, Color::Black, |mut s| {
+            render_git(&mut s, git::Repo::Clean(git::Sync::UpToDate))
+        });
+        let expected = expect(
+            &result,
+            [
+                Symbol::Branch.str(),
+                tip!(green).strip_suffix("[m ").unwrap(),
+            ],
         );
-        assert_eq!(
-            test_from(Color::Reset, Color::Black, |mut s| render_git(
-                &mut s,
-                git::Repo::Clean(git::Sync::Local)
-            )),
-            expected!("[34m", Symbol::Branch.str(), tip!(green))
-                .strip_suffix("[m ")
-                .unwrap()
+        assert_eq!(result, expected);
+        let result = test_from(Color::Reset, Color::Black, |mut s| {
+            render_git(&mut s, git::Repo::Clean(git::Sync::Local))
+        });
+        let expected = expect(
+            &result,
+            [
+                "[34m",
+                Symbol::Branch.str(),
+                tip!(green).strip_suffix("[m ").unwrap(),
+            ],
         );
+        assert_eq!(result, expected);
     }
 
     #[test]
     fn git_sync_dirty() {
-        assert_eq!(
-            test_from(Color::Reset, Color::Black, |mut s| render_git(
-                &mut s,
-                git::Repo::Dirty(git::Sync::Behind)
-            )),
-            expected!("[31m", Symbol::Branch.str(), tip!(yellow))
-                .strip_suffix("[m ")
-                .unwrap()
+        let result = test_from(Color::Reset, Color::Black, |mut s| {
+            render_git(&mut s, git::Repo::Dirty(git::Sync::Behind))
+        });
+        let expected = expect(
+            &result,
+            [
+                "[31m",
+                Symbol::Branch.str(),
+                tip!(yellow).strip_suffix("[m ").unwrap(),
+            ],
         );
-        assert_eq!(
-            test_from(Color::Reset, Color::Black, |mut s| render_git(
-                &mut s,
-                git::Repo::Dirty(git::Sync::Ahead)
-            )),
-            expected!("[33m", Symbol::Branch.str(), tip!(yellow))
-                .strip_suffix("[m ")
-                .unwrap()
+        assert_eq!(result, expected);
+        let result = test_from(Color::Reset, Color::Black, |mut s| {
+            render_git(&mut s, git::Repo::Dirty(git::Sync::Ahead))
+        });
+        let expected = expect(
+            &result,
+            [
+                "[33m",
+                Symbol::Branch.str(),
+                tip!(yellow).strip_suffix("[m ").unwrap(),
+            ],
         );
-        assert_eq!(
-            test_from(Color::Reset, Color::Black, |mut s| render_git(
-                &mut s,
-                git::Repo::Dirty(git::Sync::Diverged)
-            )),
-            expected!("[35m", Symbol::Branch.str(), tip!(yellow))
-                .strip_suffix("[m ")
-                .unwrap()
+        assert_eq!(result, expected);
+        let result = test_from(Color::Reset, Color::Black, |mut s| {
+            render_git(&mut s, git::Repo::Dirty(git::Sync::Diverged))
+        });
+        let expected = expect(
+            &result,
+            [
+                "[35m",
+                Symbol::Branch.str(),
+                tip!(yellow).strip_suffix("[m ").unwrap(),
+            ],
         );
-        assert_eq!(
-            test_from(Color::Reset, Color::Black, |mut s| render_git(
-                &mut s,
-                git::Repo::Dirty(git::Sync::UpToDate)
-            )),
-            expected!(Symbol::Branch.str(), tip!(yellow))
-                .strip_suffix("[m ")
-                .unwrap()
+        assert_eq!(result, expected);
+        let result = test_from(Color::Reset, Color::Black, |mut s| {
+            render_git(&mut s, git::Repo::Dirty(git::Sync::UpToDate))
+        });
+        let expected = expect(
+            &result,
+            [
+                Symbol::Branch.str(),
+                tip!(yellow).strip_suffix("[m ").unwrap(),
+            ],
         );
-        assert_eq!(
-            test_from(Color::Reset, Color::Black, |mut s| render_git(
-                &mut s,
-                git::Repo::Dirty(git::Sync::Local)
-            )),
-            expected!("[34m", Symbol::Branch.str(), tip!(yellow))
-                .strip_suffix("[m ")
-                .unwrap()
+        assert_eq!(result, expected);
+        let result = test_from(Color::Reset, Color::Black, |mut s| {
+            render_git(&mut s, git::Repo::Dirty(git::Sync::Local))
+        });
+        let expected = expect(
+            &result,
+            [
+                "[34m",
+                Symbol::Branch.str(),
+                tip!(yellow).strip_suffix("[m ").unwrap(),
+            ],
         );
+        assert_eq!(result, expected);
     }
 
     #[test]
     fn git_status() {
-        assert_eq!(
-            test_from(Color::Reset, Color::Black, |mut s| render_git(
-                &mut s,
-                git::Repo::None
-            )),
-            tip!(blue).strip_suffix("[m ").unwrap()
+        let result = test_from(Color::Reset, Color::Black, |mut s| {
+            render_git(&mut s, git::Repo::None)
+        });
+        let expected = expect(&result, [tip!(blue).strip_suffix("[m ").unwrap()]);
+        assert_eq!(result, expected);
+        let result = test_from(Color::Reset, Color::Black, |mut s| {
+            render_git(&mut s, git::Repo::Clean(git::Sync::UpToDate))
+        });
+        let expected = expect(
+            &result,
+            [
+                Symbol::Branch.str(),
+                tip!(green).strip_suffix("[m ").unwrap(),
+            ],
         );
-        assert_eq!(
-            test_from(Color::Reset, Color::Black, |mut s| render_git(
-                &mut s,
-                git::Repo::Clean(git::Sync::UpToDate)
-            )),
-            expected!(Symbol::Branch.str(), tip!(green))
-                .strip_suffix("[m ")
-                .unwrap()
+        assert_eq!(result, expected);
+        let result = test_from(Color::Reset, Color::Black, |mut s| {
+            render_git(&mut s, git::Repo::Dirty(git::Sync::UpToDate))
+        });
+        let expected = expect(
+            &result,
+            [
+                Symbol::Branch.str(),
+                tip!(yellow).strip_suffix("[m ").unwrap(),
+            ],
         );
-        assert_eq!(
-            test_from(Color::Reset, Color::Black, |mut s| render_git(
-                &mut s,
-                git::Repo::Dirty(git::Sync::UpToDate)
-            )),
-            expected!(Symbol::Branch.str(), tip!(yellow))
-                .strip_suffix("[m ")
-                .unwrap()
+        assert_eq!(result, expected);
+        let result = test_from(Color::Reset, Color::Black, |mut s| {
+            render_git(&mut s, git::Repo::Detached)
+        });
+        let expected = expect(
+            &result,
+            [
+                Symbol::Branch.str(),
+                tip!(magenta).strip_suffix("[m ").unwrap(),
+            ],
         );
-        assert_eq!(
-            test_from(Color::Reset, Color::Black, |mut s| render_git(
-                &mut s,
-                git::Repo::Detached
-            )),
-            expected!(Symbol::Branch.str(), tip!(magenta))
-                .strip_suffix("[m ")
-                .unwrap()
+        assert_eq!(result, expected);
+        let result = test_from(Color::Reset, Color::Black, |mut s| {
+            render_git(&mut s, git::Repo::Pending)
+        });
+        let expected = expect(
+            &result,
+            [Symbol::Warn.str(), tip!(cyan).strip_suffix("[m ").unwrap()],
         );
-        assert_eq!(
-            test_from(Color::Reset, Color::Black, |mut s| render_git(
-                &mut s,
-                git::Repo::Pending
-            )),
-            expected!(Symbol::Warn.str(), tip!(cyan))
-                .strip_suffix("[m ")
-                .unwrap()
+        assert_eq!(result, expected);
+        let result = test_from(Color::Reset, Color::Black, |mut s| {
+            render_git(&mut s, git::Repo::Untracked)
+        });
+        let expected = expect(
+            &result,
+            [
+                Symbol::Branch.str(),
+                tip!(cyan).strip_suffix("[m ").unwrap(),
+            ],
         );
-        assert_eq!(
-            test_from(Color::Reset, Color::Black, |mut s| render_git(
-                &mut s,
-                git::Repo::Untracked
-            )),
-            expected!(Symbol::Branch.str(), tip!(cyan))
-                .strip_suffix("[m ")
-                .unwrap()
-        );
-        assert_eq!(
-            test_from(Color::Reset, Color::Black, |mut s| render_git(
-                &mut s,
-                git::Repo::Error
-            )),
-            tip!(red).strip_suffix("[m ").unwrap()
-        );
+        assert_eq!(result, expected);
+        let result = test_from(Color::Reset, Color::Black, |mut s| {
+            render_git(&mut s, git::Repo::Error)
+        });
+        let expected = expect(&result, [tip!(red).strip_suffix("[m ").unwrap()]);
+        assert_eq!(result, expected);
     }
 }

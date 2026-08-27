@@ -50,9 +50,12 @@ where
         printer
             .bg(Color::Black)
             .fg(Color::Reset)
-            .txt_gap(&host)?
+            .gap()?
+            .txt(&host)?
+            .invalidate()
             .fg(Color::Reset)
-            .bg(Color::Black);
+            .bg(Color::Black)
+            .gap()?;
     }
 
     if let Nixshell::Package(pkg) = nixshell {
@@ -341,548 +344,657 @@ impl EnvFetcher for SysEnv {
 
 #[cfg(test)]
 mod tests {
-    // use super::*;
-    // use crate::test;
-    //
-    // #[derive(Default)]
-    // struct MockEnv {
-    //     pwd: Option<std::path::PathBuf>,
-    //     home: Option<String>,
-    //     venv: Option<String>,
-    //     direnv: Option<(String, bool)>,
-    //     nixshell: Nixshell,
-    // }
-    //
-    // impl EnvFetcher for MockEnv {
-    //     fn pwd(&self) -> Option<std::path::PathBuf> {
-    //         self.pwd.clone()
-    //     }
-    //
-    //     fn home(&self) -> Option<String> {
-    //         self.home.clone()
-    //     }
-    //
-    //     fn venv(&self) -> Option<String> {
-    //         self.venv.clone()
-    //     }
-    //
-    //     fn direnv(&self) -> Option<(String, bool)> {
-    //         self.direnv.clone()
-    //     }
-    //
-    //     fn nixshell(&self) -> Nixshell {
-    //         self.nixshell.clone()
-    //     }
-    // }
-    //
-    // #[test]
-    // fn all_empty() {
-    //     let result = test(|s| render_inner(s, None, false, false, &MockEnv::default()));
-    //     let expected = concat!(
-    //         // Missing error
-    //         // Missing jobs
-    //         // Missing venv
-    //         // Missing HOST
-    //         style!(fg = color!(black), bg = color!(blue)),
-    //         " ",
-    //         // Missing PWD
-    //         " ",
-    //         style!(fg = color!(blue), bg = color!(reset), symbol!(div)),
-    //         style!(fg = color!(reset)),
-    //         " "
-    //     );
-    //     println!("{result}");
-    //     println!("{expected}");
-    //     assert_eq!(result, expected);
-    // }
-    //
-    // #[test]
-    // fn just_pwd() {
-    //     let result = test(|s| {
-    //         render_inner(
-    //             s,
-    //             None,
-    //             false,
-    //             false,
-    //             &MockEnv {
-    //                 pwd: Some(std::path::PathBuf::from("/")),
-    //                 ..MockEnv::default()
-    //             },
-    //         )
-    //     });
-    //     let expected = concat!(
-    //         // Missing error
-    //         // Missing jobs
-    //         // Missing venv
-    //         // Missing HOST
-    //         style!(fg = color!(black), bg = color!(blue)),
-    //         " / ",
-    //         style!(fg = color!(blue), bg = color!(reset), symbol!(div)),
-    //         style!(fg = color!(reset)),
-    //         " "
-    //     );
-    //     println!("{result}");
-    //     println!("{expected}");
-    //     assert_eq!(result, expected);
-    // }
-    //
-    // #[test]
-    // fn home_match() {
-    //     let result = test(|s| {
-    //         render_inner(
-    //             s,
-    //             None,
-    //             false,
-    //             false,
-    //             &MockEnv {
-    //                 pwd: Some(std::path::PathBuf::from("/some/home/path/further/on")),
-    //                 home: Some(String::from("/some/home/path")),
-    //                 ..MockEnv::default()
-    //             },
-    //         )
-    //     });
-    //     let expected = concat!(
-    //         // Missing error
-    //         // Missing jobs
-    //         // Missing venv
-    //         // Missing HOST
-    //         style!(fg = color!(black), bg = color!(blue)),
-    //         " ~/further/on ",
-    //         style!(fg = color!(blue), bg = color!(reset), symbol!(div)),
-    //         style!(fg = color!(reset)),
-    //         " "
-    //     );
-    //     println!("{result}");
-    //     println!("{expected}");
-    //     assert_eq!(result, expected);
-    // }
-    //
-    // #[test]
-    // fn all_tags() {
-    //     let result = test(|s| {
-    //         render_inner(
-    //             s,
-    //             Some(String::from("[31mH")),
-    //             true,
-    //             true,
-    //             &MockEnv {
-    //                 pwd: Some(std::path::PathBuf::from("/some/home/path/further/on")),
-    //                 home: Some(String::from("/some/home/path")),
-    //                 venv: Some(String::from("py")),
-    //                 direnv: Some((String::from("/some/direnv"), false)),
-    //                 nixshell: Nixshell::Package(String::from("pkg1 pkg2")),
-    //             },
-    //         )
-    //     });
-    //     let expected = concat!(
-    //         style!(fg = color!(red), bg = color!(black)),
-    //         " ",
-    //         symbol!(error),
-    //         " ",
-    //         style!(fg = color!(magenta), symbol!(jobs)),
-    //         " ",
-    //         style!(fg = color!(reset), style!(fg = color!(red), "H")),
-    //         style!(reset to bg = color!(black)),
-    //         " ",
-    //         style!(fg = color!(black), bg = color!(yellow), symbol!(div)),
-    //         style!(fg = color!(black)),
-    //         " pkg1 pkg2 ",
-    //         style!(fg = color!(yellow), bg = color!(black), symbol!(div)),
-    //         style!(fg = color!(red)),
-    //         " direnv ",
-    //         style!(fg = color!(black), bg = color!(cyan), symbol!(div)),
-    //         style!(fg = color!(black)),
-    //         " py ",
-    //         style!(fg = color!(cyan), bg = color!(blue), symbol!(div)),
-    //         style!(fg = color!(black)),
-    //         " ~/further/on ",
-    //         style!(fg = color!(blue), bg = color!(reset), symbol!(div)),
-    //         style!(fg = color!(reset)),
-    //         " "
-    //     );
-    //     println!("{result}");
-    //     println!("{expected}");
-    //     assert_eq!(result, expected);
-    // }
-    //
-    // #[test]
-    // fn venv() {
-    //     let result = test(|s| {
-    //         render_inner(
-    //             s,
-    //             Some(String::from("[31mH")),
-    //             true,
-    //             true,
-    //             &MockEnv {
-    //                 pwd: Some(std::path::PathBuf::from("/some/home/path/further/on")),
-    //                 home: Some(String::from("/some/home/path")),
-    //                 venv: Some(String::from("py")),
-    //                 direnv: None,
-    //                 nixshell: Nixshell::None,
-    //             },
-    //         )
-    //     });
-    //     let expected = concat!(
-    //         style!(fg = color!(red), bg = color!(black)),
-    //         " ",
-    //         symbol!(error),
-    //         " ",
-    //         style!(fg = color!(magenta), symbol!(jobs)),
-    //         " ",
-    //         style!(fg = color!(reset), style!(fg = color!(red), "H")),
-    //         style!(reset to bg = color!(black)),
-    //         " ",
-    //         style!(fg = color!(black), bg = color!(cyan), symbol!(div)),
-    //         style!(fg = color!(black)),
-    //         " py ",
-    //         style!(fg = color!(cyan), bg = color!(blue), symbol!(div)),
-    //         style!(fg = color!(black)),
-    //         " ~/further/on ",
-    //         style!(fg = color!(blue), bg = color!(reset), symbol!(div)),
-    //         style!(fg = color!(reset)),
-    //         " "
-    //     );
-    //     println!("{result}");
-    //     println!("{expected}");
-    //     assert_eq!(result, expected);
-    // }
-    //
-    // #[test]
-    // fn direnv_inactive() {
-    //     let result = test(|s| {
-    //         render_inner(
-    //             s,
-    //             Some(String::from("[31mH")),
-    //             true,
-    //             true,
-    //             &MockEnv {
-    //                 pwd: Some(std::path::PathBuf::from("/some/home/path/further/on")),
-    //                 home: Some(String::from("/some/home/path")),
-    //                 venv: None,
-    //                 direnv: Some((String::from("/some/direnv"), false)),
-    //                 nixshell: Nixshell::None,
-    //             },
-    //         )
-    //     });
-    //     let expected = concat!(
-    //         style!(fg = color!(red), bg = color!(black)),
-    //         " ",
-    //         symbol!(error),
-    //         " ",
-    //         style!(fg = color!(magenta), symbol!(jobs)),
-    //         " ",
-    //         style!(fg = color!(reset), style!(fg = color!(red), "H")),
-    //         style!(reset to bg = color!(black)),
-    //         " ",
-    //         style!(fg = color!(red)),
-    //         "direnv ",
-    //         style!(fg = color!(black), bg = color!(blue), symbol!(div)),
-    //         style!(fg = color!(black)),
-    //         " ~/further/on ",
-    //         style!(fg = color!(blue), bg = color!(reset), symbol!(div)),
-    //         style!(fg = color!(reset)),
-    //         " "
-    //     );
-    //     println!("{result}");
-    //     println!("{expected}");
-    //     assert_eq!(result, expected);
-    // }
-    //
-    // #[test]
-    // fn direnv_active() {
-    //     let result = test(|s| {
-    //         render_inner(
-    //             s,
-    //             Some(String::from("[31mH")),
-    //             true,
-    //             true,
-    //             &MockEnv {
-    //                 pwd: Some(std::path::PathBuf::from("/some/home/path/further/on")),
-    //                 home: Some(String::from("/some/home/path")),
-    //                 venv: None,
-    //                 direnv: Some((String::from("/some/direnv"), true)),
-    //                 nixshell: Nixshell::Generic,
-    //             },
-    //         )
-    //     });
-    //     let expected = concat!(
-    //         style!(fg = color!(red), bg = color!(black)),
-    //         " ",
-    //         symbol!(error),
-    //         " ",
-    //         style!(fg = color!(magenta), symbol!(jobs)),
-    //         " ",
-    //         style!(fg = color!(reset), style!(fg = color!(red), "H")),
-    //         style!(reset to bg = color!(black)),
-    //         " ",
-    //         style!(fg = color!(green)),
-    //         "direnv ",
-    //         style!(fg = color!(black), bg = color!(blue), symbol!(div)),
-    //         style!(fg = color!(black)),
-    //         " ~/further/on ",
-    //         style!(fg = color!(blue), bg = color!(reset), symbol!(div)),
-    //         style!(fg = color!(reset)),
-    //         " "
-    //     );
-    //     println!("{result}");
-    //     println!("{expected}");
-    //     assert_eq!(result, expected);
-    // }
-    //
-    // #[test]
-    // fn nixshell_generic() {
-    //     let result = test(|s| {
-    //         render_inner(
-    //             s,
-    //             Some(String::from("[31mH")),
-    //             true,
-    //             true,
-    //             &MockEnv {
-    //                 pwd: Some(std::path::PathBuf::from("/some/home/path/further/on")),
-    //                 home: Some(String::from("/some/home/path")),
-    //                 venv: None,
-    //                 direnv: None,
-    //                 nixshell: Nixshell::Generic,
-    //             },
-    //         )
-    //     });
-    //     let expected = concat!(
-    //         style!(fg = color!(red), bg = color!(black)),
-    //         " ",
-    //         symbol!(error),
-    //         " ",
-    //         style!(fg = color!(magenta), symbol!(jobs)),
-    //         " ",
-    //         style!(fg = color!(cyan), symbol!(flake)),
-    //         " ",
-    //         style!(fg = color!(reset), style!(fg = color!(red), "H")),
-    //         style!(reset to bg = color!(black)),
-    //         " ",
-    //         style!(fg = color!(black), bg = color!(blue), symbol!(div)),
-    //         style!(fg = color!(black)),
-    //         " ~/further/on ",
-    //         style!(fg = color!(blue), bg = color!(reset), symbol!(div)),
-    //         style!(fg = color!(reset)),
-    //         " "
-    //     );
-    //     println!("{result}");
-    //     println!("{expected}");
-    //     assert_eq!(result, expected);
-    // }
-    //
-    // #[test]
-    // fn nixshell_package() {
-    //     let result = test(|s| {
-    //         render_inner(
-    //             s,
-    //             Some(String::from("[31mH")),
-    //             true,
-    //             true,
-    //             &MockEnv {
-    //                 pwd: Some(std::path::PathBuf::from("/some/home/path/further/on")),
-    //                 home: Some(String::from("/some/home/path")),
-    //                 venv: None,
-    //                 direnv: None,
-    //                 nixshell: Nixshell::Package(String::from("pkg1 pkg2")),
-    //             },
-    //         )
-    //     });
-    //     let expected = concat!(
-    //         style!(fg = color!(red), bg = color!(black)),
-    //         " ",
-    //         symbol!(error),
-    //         " ",
-    //         style!(fg = color!(magenta), symbol!(jobs)),
-    //         " ",
-    //         style!(fg = color!(reset), style!(fg = color!(red), "H")),
-    //         style!(reset to bg = color!(black)),
-    //         " ",
-    //         style!(fg = color!(black), bg = color!(yellow), symbol!(div)),
-    //         style!(fg = color!(black)),
-    //         " pkg1 pkg2 ",
-    //         style!(fg = color!(yellow), bg = color!(blue), symbol!(div)),
-    //         style!(fg = color!(black)),
-    //         " ~/further/on ",
-    //         style!(fg = color!(blue), bg = color!(reset), symbol!(div)),
-    //         style!(fg = color!(reset)),
-    //         " "
-    //     );
-    //     println!("{result}");
-    //     println!("{expected}");
-    //     assert_eq!(result, expected);
-    // }
-    //
-    // #[test]
-    // fn nixshell_generic_direnv_active() {
-    //     let result = test(|s| {
-    //         render_inner(
-    //             s,
-    //             Some(String::from("[31mH")),
-    //             true,
-    //             true,
-    //             &MockEnv {
-    //                 pwd: Some(std::path::PathBuf::from("/some/home/path/further/on")),
-    //                 home: Some(String::from("/some/home/path")),
-    //                 venv: None,
-    //                 direnv: Some((String::from("/some/direnv"), true)),
-    //                 nixshell: Nixshell::Generic,
-    //             },
-    //         )
-    //     });
-    //     let expected = concat!(
-    //         style!(fg = color!(red), bg = color!(black)),
-    //         " ",
-    //         symbol!(error),
-    //         " ",
-    //         style!(fg = color!(magenta), symbol!(jobs)),
-    //         " ",
-    //         style!(fg = color!(reset), style!(fg = color!(red), "H")),
-    //         style!(reset to bg = color!(black)),
-    //         " ",
-    //         style!(fg = color!(green)),
-    //         "direnv ",
-    //         style!(fg = color!(black), bg = color!(blue), symbol!(div)),
-    //         style!(fg = color!(black)),
-    //         " ~/further/on ",
-    //         style!(fg = color!(blue), bg = color!(reset), symbol!(div)),
-    //         style!(fg = color!(reset)),
-    //         " "
-    //     );
-    //     println!("{result}");
-    //     println!("{expected}");
-    //     assert_eq!(result, expected);
-    // }
-    //
-    // #[test]
-    // fn nixshell_generic_direnv_inactive() {
-    //     let result = test(|s| {
-    //         render_inner(
-    //             s,
-    //             Some(String::from("[31mH")),
-    //             true,
-    //             true,
-    //             &MockEnv {
-    //                 pwd: Some(std::path::PathBuf::from("/some/home/path/further/on")),
-    //                 home: Some(String::from("/some/home/path")),
-    //                 venv: None,
-    //                 direnv: Some((String::from("/some/direnv"), false)),
-    //                 nixshell: Nixshell::Generic,
-    //             },
-    //         )
-    //     });
-    //     let expected = concat!(
-    //         style!(fg = color!(red), bg = color!(black)),
-    //         " ",
-    //         symbol!(error),
-    //         " ",
-    //         style!(fg = color!(magenta), symbol!(jobs)),
-    //         " ",
-    //         style!(fg = color!(cyan), symbol!(flake)),
-    //         " ",
-    //         style!(fg = color!(reset), style!(fg = color!(red), "H")),
-    //         style!(reset to bg = color!(black)),
-    //         " ",
-    //         style!(fg = color!(red)),
-    //         "direnv ",
-    //         style!(fg = color!(black), bg = color!(blue), symbol!(div)),
-    //         style!(fg = color!(black)),
-    //         " ~/further/on ",
-    //         style!(fg = color!(blue), bg = color!(reset), symbol!(div)),
-    //         style!(fg = color!(reset)),
-    //         " "
-    //     );
-    //     println!("{result}");
-    //     println!("{expected}");
-    //     assert_eq!(result, expected);
-    // }
-    //
-    // #[test]
-    // fn nixshell_package_direnv_active() {
-    //     let result = test(|s| {
-    //         render_inner(
-    //             s,
-    //             Some(String::from("[31mH")),
-    //             true,
-    //             true,
-    //             &MockEnv {
-    //                 pwd: Some(std::path::PathBuf::from("/some/home/path/further/on")),
-    //                 home: Some(String::from("/some/home/path")),
-    //                 venv: None,
-    //                 direnv: Some((String::from("/some/direnv"), true)),
-    //                 nixshell: Nixshell::Package(String::from("pkg1 pkg2")),
-    //             },
-    //         )
-    //     });
-    //     let expected = concat!(
-    //         style!(fg = color!(red), bg = color!(black)),
-    //         " ",
-    //         symbol!(error),
-    //         " ",
-    //         style!(fg = color!(magenta), symbol!(jobs)),
-    //         " ",
-    //         style!(fg = color!(reset), style!(fg = color!(red), "H")),
-    //         style!(reset to bg = color!(black)),
-    //         " ",
-    //         style!(fg = color!(black), bg = color!(yellow), symbol!(div)),
-    //         style!(fg = color!(black)),
-    //         " pkg1 pkg2 ",
-    //         style!(fg = color!(yellow), bg = color!(black), symbol!(div)),
-    //         style!(fg = color!(green)),
-    //         " direnv ",
-    //         style!(fg = color!(black), bg = color!(blue), symbol!(div)),
-    //         style!(fg = color!(black)),
-    //         " ~/further/on ",
-    //         style!(fg = color!(blue), bg = color!(reset), symbol!(div)),
-    //         style!(fg = color!(reset)),
-    //         " "
-    //     );
-    //     println!("{result}");
-    //     println!("{expected}");
-    //     assert_eq!(result, expected);
-    // }
-    //
-    // #[test]
-    // fn nixshell_package_direnv_inactive() {
-    //     let result = test(|s| {
-    //         render_inner(
-    //             s,
-    //             Some(String::from("[31mH")),
-    //             true,
-    //             true,
-    //             &MockEnv {
-    //                 pwd: Some(std::path::PathBuf::from("/some/home/path/further/on")),
-    //                 home: Some(String::from("/some/home/path")),
-    //                 venv: None,
-    //                 direnv: Some((String::from("/some/direnv"), false)),
-    //                 nixshell: Nixshell::Package(String::from("pkg1 pkg2")),
-    //             },
-    //         )
-    //     });
-    //     let expected = concat!(
-    //         style!(fg = color!(red), bg = color!(black)),
-    //         " ",
-    //         symbol!(error),
-    //         " ",
-    //         style!(fg = color!(magenta), symbol!(jobs)),
-    //         " ",
-    //         style!(fg = color!(reset), style!(fg = color!(red), "H")),
-    //         style!(reset to bg = color!(black)),
-    //         " ",
-    //         style!(fg = color!(black), bg = color!(yellow), symbol!(div)),
-    //         style!(fg = color!(black)),
-    //         " pkg1 pkg2 ",
-    //         style!(fg = color!(yellow), bg = color!(black), symbol!(div)),
-    //         style!(fg = color!(red)),
-    //         " direnv ",
-    //         style!(fg = color!(black), bg = color!(blue), symbol!(div)),
-    //         style!(fg = color!(black)),
-    //         " ~/further/on ",
-    //         style!(fg = color!(blue), bg = color!(reset), symbol!(div)),
-    //         style!(fg = color!(reset)),
-    //         " "
-    //     );
-    //     println!("{result}");
-    //     println!("{expected}");
-    //     assert_eq!(result, expected);
-    // }
+    use super::*;
+    use crate::tests::{expect, test};
+
+    const HOST: &str = "[31mH";
+
+    #[derive(Default)]
+    struct MockEnv {
+        pwd: Option<std::path::PathBuf>,
+        home: Option<String>,
+        venv: Option<String>,
+        direnv: Option<(String, bool)>,
+        nixshell: Nixshell,
+    }
+
+    impl EnvFetcher for MockEnv {
+        fn pwd(&self) -> Option<std::path::PathBuf> {
+            self.pwd.clone()
+        }
+
+        fn home(&self) -> Option<String> {
+            self.home.clone()
+        }
+
+        fn venv(&self) -> Option<String> {
+            self.venv.clone()
+        }
+
+        fn direnv(&self) -> Option<(String, bool)> {
+            self.direnv.clone()
+        }
+
+        fn nixshell(&self) -> Nixshell {
+            self.nixshell.clone()
+        }
+    }
+
+    #[test]
+    fn all_empty() {
+        let result = test(|s| render_inner(s, None, false, false, &MockEnv::default()));
+        let expected = expect(
+            &result,
+            [
+                "[;44m",
+                " ",
+                // Missing error
+                // Missing jobs
+                // Missing venv
+                // Missing HOST
+                // Missing PWD
+                "[;34m",
+                Div::ChevronLeft.str(),
+                "[m",
+                " ",
+            ],
+        );
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn just_pwd() {
+        let result = test(|s| {
+            render_inner(
+                s,
+                None,
+                false,
+                false,
+                &MockEnv {
+                    pwd: Some(std::path::PathBuf::from("/")),
+                    ..MockEnv::default()
+                },
+            )
+        });
+        let expected = expect(
+            &result,
+            [
+                "[30;44m",
+                // Missing error
+                // Missing jobs
+                // Missing venv
+                // Missing HOST
+                " ",
+                "/",
+                " ",
+                "[;34m",
+                Div::ChevronLeft.str(),
+                "[m",
+                " ",
+            ],
+        );
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn home_match() {
+        let result = test(|s| {
+            render_inner(
+                s,
+                None,
+                false,
+                false,
+                &MockEnv {
+                    pwd: Some(std::path::PathBuf::from("/some/home/path/further/on")),
+                    home: Some(String::from("/some/home/path")),
+                    ..MockEnv::default()
+                },
+            )
+        });
+        let expected = expect(
+            &result,
+            [
+                "[30;44m",
+                // Missing error
+                // Missing jobs
+                // Missing venv
+                // Missing HOST
+                " ",
+                "~/further/on",
+                " ",
+                "[;34m",
+                Div::ChevronLeft.str(),
+                "[m",
+                " ",
+            ],
+        );
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn all_tags() {
+        let result = test(|s| {
+            render_inner(
+                s,
+                Some(String::from(HOST)),
+                true,
+                true,
+                &MockEnv {
+                    pwd: Some(std::path::PathBuf::from("/some/home/path/further/on")),
+                    home: Some(String::from("/some/home/path")),
+                    venv: Some(String::from("py")),
+                    direnv: Some((String::from("/some/direnv"), false)),
+                    nixshell: Nixshell::Package(String::from("pkg1 pkg2")),
+                },
+            )
+        });
+        let expected = expect(
+            &result,
+            [
+                "[31;40m",
+                " ",
+                Symbol::Error.str(),
+                " ",
+                "[35m",
+                Symbol::Jobs.str(),
+                " ",
+                "[39m",
+                HOST,
+                "[;40m",
+                " ",
+                "[30;43m",
+                Div::ChevronLeft.str(),
+                " ",
+                "pkg1",
+                " ",
+                "pkg2",
+                " ",
+                "[33;40m",
+                Div::ChevronLeft.str(),
+                "[31m",
+                " ",
+                "direnv",
+                " ",
+                "[30;46m",
+                Div::ChevronLeft.str(),
+                " ",
+                "py",
+                " ",
+                "[36;44m",
+                Div::ChevronLeft.str(),
+                "[30m",
+                " ",
+                "~/further/on",
+                " ",
+                "[;34m",
+                Div::ChevronLeft.str(),
+                "[m",
+                " ",
+            ],
+        );
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn venv() {
+        let result = test(|s| {
+            render_inner(
+                s,
+                Some(String::from(HOST)),
+                true,
+                true,
+                &MockEnv {
+                    pwd: Some(std::path::PathBuf::from("/some/home/path/further/on")),
+                    home: Some(String::from("/some/home/path")),
+                    venv: Some(String::from("py")),
+                    direnv: None,
+                    nixshell: Nixshell::None,
+                },
+            )
+        });
+        let expected = expect(
+            &result,
+            [
+                "[31;40m",
+                " ",
+                Symbol::Error.str(),
+                " ",
+                "[35m",
+                Symbol::Jobs.str(),
+                " ",
+                "[39m",
+                HOST,
+                "[;40m",
+                " ",
+                "[30;46m",
+                Div::ChevronLeft.str(),
+                " ",
+                "py",
+                " ",
+                "[36;44m",
+                Div::ChevronLeft.str(),
+                "[30m",
+                " ",
+                "~/further/on",
+                " ",
+                "[;34m",
+                Div::ChevronLeft.str(),
+                "[m",
+                " ",
+            ],
+        );
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn direnv_inactive() {
+        let result = test(|s| {
+            render_inner(
+                s,
+                Some(String::from(HOST)),
+                true,
+                true,
+                &MockEnv {
+                    pwd: Some(std::path::PathBuf::from("/some/home/path/further/on")),
+                    home: Some(String::from("/some/home/path")),
+                    venv: None,
+                    direnv: Some((String::from("/some/direnv"), false)),
+                    nixshell: Nixshell::None,
+                },
+            )
+        });
+        let expected = expect(
+            &result,
+            [
+                "[31;40m",
+                " ",
+                Symbol::Error.str(),
+                " ",
+                "[35m",
+                Symbol::Jobs.str(),
+                " ",
+                "[39m",
+                HOST,
+                "[;40m",
+                " ",
+                "[31m",
+                "direnv",
+                " ",
+                "[30;44m",
+                Div::ChevronLeft.str(),
+                " ",
+                "~/further/on",
+                " ",
+                "[;34m",
+                Div::ChevronLeft.str(),
+                "[m",
+                " ",
+            ],
+        );
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn direnv_active() {
+        let result = test(|s| {
+            render_inner(
+                s,
+                Some(String::from(HOST)),
+                true,
+                true,
+                &MockEnv {
+                    pwd: Some(std::path::PathBuf::from("/some/home/path/further/on")),
+                    home: Some(String::from("/some/home/path")),
+                    venv: None,
+                    direnv: Some((String::from("/some/direnv"), true)),
+                    nixshell: Nixshell::Generic,
+                },
+            )
+        });
+        let expected = expect(
+            &result,
+            [
+                "[31;40m",
+                " ",
+                Symbol::Error.str(),
+                " ",
+                "[35m",
+                Symbol::Jobs.str(),
+                " ",
+                "[39m",
+                HOST,
+                "[;40m",
+                " ",
+                "[32m",
+                "direnv",
+                " ",
+                "[30;44m",
+                Div::ChevronLeft.str(),
+                " ",
+                "~/further/on",
+                " ",
+                "[;34m",
+                Div::ChevronLeft.str(),
+                "[m",
+                " ",
+            ],
+        );
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn nixshell_generic() {
+        let result = test(|s| {
+            render_inner(
+                s,
+                Some(String::from(HOST)),
+                true,
+                true,
+                &MockEnv {
+                    pwd: Some(std::path::PathBuf::from("/some/home/path/further/on")),
+                    home: Some(String::from("/some/home/path")),
+                    venv: None,
+                    direnv: None,
+                    nixshell: Nixshell::Generic,
+                },
+            )
+        });
+        let expected = expect(
+            &result,
+            [
+                "[31;40m",
+                " ",
+                Symbol::Error.str(),
+                " ",
+                "[35m",
+                Symbol::Jobs.str(),
+                " ",
+                "[36m",
+                Symbol::Flake.str(),
+                " ",
+                "[39m",
+                HOST,
+                "[;40m",
+                " ",
+                "[30;44m",
+                Div::ChevronLeft.str(),
+                " ",
+                "~/further/on",
+                " ",
+                "[;34m",
+                Div::ChevronLeft.str(),
+                "[m",
+                " ",
+            ],
+        );
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn nixshell_package() {
+        let result = test(|s| {
+            render_inner(
+                s,
+                Some(String::from(HOST)),
+                true,
+                true,
+                &MockEnv {
+                    pwd: Some(std::path::PathBuf::from("/some/home/path/further/on")),
+                    home: Some(String::from("/some/home/path")),
+                    venv: None,
+                    direnv: None,
+                    nixshell: Nixshell::Package(String::from("pkg1 pkg2")),
+                },
+            )
+        });
+        let expected = expect(
+            &result,
+            [
+                "[31;40m",
+                " ",
+                Symbol::Error.str(),
+                " ",
+                "[35m",
+                Symbol::Jobs.str(),
+                " ",
+                "[39m",
+                HOST,
+                "[;40m",
+                " ",
+                "[30;43m",
+                Div::ChevronLeft.str(),
+                " ",
+                "pkg1",
+                " ",
+                "pkg2",
+                " ",
+                "[33;44m",
+                Div::ChevronLeft.str(),
+                "[30m",
+                " ",
+                "~/further/on",
+                " ",
+                "[;34m",
+                Div::ChevronLeft.str(),
+                "[m",
+                " ",
+            ],
+        );
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn nixshell_generic_direnv_active() {
+        let result = test(|s| {
+            render_inner(
+                s,
+                Some(String::from(HOST)),
+                true,
+                true,
+                &MockEnv {
+                    pwd: Some(std::path::PathBuf::from("/some/home/path/further/on")),
+                    home: Some(String::from("/some/home/path")),
+                    venv: None,
+                    direnv: Some((String::from("/some/direnv"), true)),
+                    nixshell: Nixshell::Generic,
+                },
+            )
+        });
+        let expected = expect(
+            &result,
+            [
+                "[31;40m",
+                " ",
+                Symbol::Error.str(),
+                " ",
+                "[35m",
+                Symbol::Jobs.str(),
+                " ",
+                "[39m",
+                HOST,
+                "[;40m",
+                " ",
+                "[32m",
+                "direnv",
+                " ",
+                "[30;44m",
+                Div::ChevronLeft.str(),
+                " ",
+                "~/further/on",
+                " ",
+                "[;34m",
+                Div::ChevronLeft.str(),
+                "[m",
+                " ",
+            ],
+        );
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn nixshell_generic_direnv_inactive() {
+        let result = test(|s| {
+            render_inner(
+                s,
+                Some(String::from(HOST)),
+                true,
+                true,
+                &MockEnv {
+                    pwd: Some(std::path::PathBuf::from("/some/home/path/further/on")),
+                    home: Some(String::from("/some/home/path")),
+                    venv: None,
+                    direnv: Some((String::from("/some/direnv"), false)),
+                    nixshell: Nixshell::Generic,
+                },
+            )
+        });
+        let expected = expect(
+            &result,
+            [
+                "[31;40m",
+                " ",
+                Symbol::Error.str(),
+                " ",
+                "[35m",
+                Symbol::Jobs.str(),
+                " ",
+                "[36m",
+                Symbol::Flake.str(),
+                " ",
+                "[39m",
+                HOST,
+                "[;40m",
+                " ",
+                "[31m",
+                "direnv",
+                " ",
+                "[30;44m",
+                Div::ChevronLeft.str(),
+                " ",
+                "~/further/on",
+                " ",
+                "[;34m",
+                Div::ChevronLeft.str(),
+                "[m",
+                " ",
+            ],
+        );
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn nixshell_package_direnv_active() {
+        let result = test(|s| {
+            render_inner(
+                s,
+                Some(String::from(HOST)),
+                true,
+                true,
+                &MockEnv {
+                    pwd: Some(std::path::PathBuf::from("/some/home/path/further/on")),
+                    home: Some(String::from("/some/home/path")),
+                    venv: None,
+                    direnv: Some((String::from("/some/direnv"), true)),
+                    nixshell: Nixshell::Package(String::from("pkg1 pkg2")),
+                },
+            )
+        });
+        let expected = expect(
+            &result,
+            [
+                "[31;40m",
+                " ",
+                Symbol::Error.str(),
+                " ",
+                "[35m",
+                Symbol::Jobs.str(),
+                " ",
+                "[39m",
+                HOST,
+                "[;40m",
+                " ",
+                "[30;43m",
+                Div::ChevronLeft.str(),
+                " ",
+                "pkg1",
+                " ",
+                "pkg2",
+                " ",
+                "[33;40m",
+                Div::ChevronLeft.str(),
+                "[32m",
+                " ",
+                "direnv",
+                " ",
+                "[30;44m",
+                Div::ChevronLeft.str(),
+                " ",
+                "~/further/on",
+                " ",
+                "[;34m",
+                Div::ChevronLeft.str(),
+                "[m",
+                " ",
+            ],
+        );
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn nixshell_package_direnv_inactive() {
+        let result = test(|s| {
+            render_inner(
+                s,
+                Some(String::from(HOST)),
+                true,
+                true,
+                &MockEnv {
+                    pwd: Some(std::path::PathBuf::from("/some/home/path/further/on")),
+                    home: Some(String::from("/some/home/path")),
+                    venv: None,
+                    direnv: Some((String::from("/some/direnv"), false)),
+                    nixshell: Nixshell::Package(String::from("pkg1 pkg2")),
+                },
+            )
+        });
+        let expected = expect(
+            &result,
+            [
+                "[31;40m",
+                " ",
+                Symbol::Error.str(),
+                " ",
+                "[35m",
+                Symbol::Jobs.str(),
+                " ",
+                "[39m",
+                HOST,
+                "[;40m",
+                " ",
+                "[30;43m",
+                Div::ChevronLeft.str(),
+                " ",
+                "pkg1",
+                " ",
+                "pkg2",
+                " ",
+                "[33;40m",
+                Div::ChevronLeft.str(),
+                "[31m",
+                " ",
+                "direnv",
+                " ",
+                "[30;44m",
+                Div::ChevronLeft.str(),
+                " ",
+                "~/further/on",
+                " ",
+                "[;34m",
+                Div::ChevronLeft.str(),
+                "[m",
+                " ",
+            ],
+        );
+        assert_eq!(result, expected);
+    }
 }
