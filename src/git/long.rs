@@ -34,6 +34,7 @@ pub struct Changes {
 }
 
 impl Changes {
+    #[must_use]
     pub fn clean(&self) -> bool {
         self.added == 0 && self.modified == 0 && self.removed == 0 && self.conflicted == 0
     }
@@ -50,6 +51,7 @@ fn short_id(oid: git2::Oid) -> Option<String> {
     }
 }
 
+#[must_use]
 pub fn parse(path: &std::path::Path) -> Repo {
     let Some(repo) = git2::Repository::discover(path).ok() else {
         return Repo::None;

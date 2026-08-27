@@ -1,12 +1,14 @@
 use crate::Result;
-use crate::git::short as git;
-use crate::print::{Color, Printer, Symbol};
+use simpalt::{
+    git::short as git,
+    print::{Color, Div, Printer, Symbol},
+};
 
 macro_rules! chevron {
     ($printer: ident, $color: ident) => {
         $printer
-            .div(crate::print::Div::ChevronLeft, crate::print::Color::$color)?
-            .div(crate::print::Div::ChevronLeft, crate::print::Color::Reset)?
+            .div(Div::ChevronLeft, Color::$color)?
+            .div(Div::ChevronLeft, Color::Reset)?
     };
 }
 
@@ -59,10 +61,10 @@ where
     }
 
     if let Some(host) = host {
-        printer.fg(Color::Reset).txt(&host)?;
+        printer.fg(Color::Reset).txt(&host)?.invalidate();
     }
 
-    printer.invalidate().fg(Color::Reset).bg(Color::Black);
+    printer.fg(Color::Reset).bg(Color::Black);
 
     let pwd = enver.pwd();
 
@@ -137,16 +139,16 @@ where
             chevron!(printer, Yellow)
         }
         git::Repo::Detached => {
-            printer.txt(Symbol::Warn)?;
-            chevron!(printer, Cyan)
+            printer.txt(Symbol::Branch)?;
+            chevron!(printer, Magenta)
         }
         git::Repo::Pending => {
-            printer.txt(Symbol::Branch)?;
+            printer.txt(Symbol::Warn)?;
             chevron!(printer, Cyan)
         }
         git::Repo::Untracked => {
             printer.txt(Symbol::Branch)?;
-            chevron!(printer, Magenta)
+            chevron!(printer, Cyan)
         }
         git::Repo::Error => chevron!(printer, Red),
     };
@@ -193,25 +195,54 @@ impl EnvFetcher for SysEnv {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::test;
+    use crate::{test, test_from};
 
-    macro_rules! chevron {
-        ($color: expr) => {
-            concat!(
-                style!(fg = color!(black), bg = $color, symbol!(div)),
-                style!(reset to fg = $color, symbol!(div)),
-            )
+    macro_rules! tip {
+        ($color: literal) => {{
+            let mut tip = String::with_capacity(25);
+            tip.push_str(concat!("[30;4", $color, "m"));
+            tip.push_str(Div::ChevronLeft.str());
+            tip.push_str(concat!("[;3", $color, "m"));
+            tip.push_str(Div::ChevronLeft.str());
+            tip.push_str("[m");
+            tip.push_str(" ");
+            tip
+        }};
+        (red) => {
+            tip!(1)
+        };
+        (green) => {
+            tip!(2)
+        };
+        (yellow) => {
+            tip!(3)
+        };
+        (blue) => {
+            tip!(4)
+        };
+        (magenta) => {
+            tip!(5)
+        };
+        (cyan) => {
+            tip!(6)
         };
     }
 
-    macro_rules! branch {
-        () => {
-            symbol!(branch)
-        };
-        ($color: expr) => {
-            style!(fg = $color, symbol!(branch))
-        };
+    macro_rules! expected {
+        ($part: expr) => {{
+            let mut expected = String::new();
+            expected.push_str(&$part);
+            expected
+        }};
+        ($part: expr, $($rest: expr),*) => {{
+            let mut expected = String::new();
+            expected.push_str($part);
+            expected.push_str(expected!($($rest),*).as_str());
+            expected
+        }};
     }
+
+    const HOST: &str = "[31mH";
 
     #[derive(Default)]
     struct MockEnv {
@@ -247,16 +278,16 @@ mod tests {
     #[test]
     fn all_empty() {
         let result = test(|s| render_inner(s, None, false, false, &MockEnv::default()));
-        let expected = concat!(
-            style!(reset to bg = color!(black)),
+
+        let expected = expected!(
+            "[;40m",
             " ",
             // Missing statuses
             // Missing HOST
             // Missing PWD
-            chevron!(color!(blue)),
-            style!(reset),
-            " "
+            tip!(blue)
         );
+
         println!("{result}");
         println!("{expected}");
         assert_eq!(result, expected);
@@ -276,22 +307,19 @@ mod tests {
                 },
             )
         });
-        let expected = concat!(
-            style!(reset to bg = color!(black)),
+        let expected = expected!(
+            "[31;40m",
             " ",
-            style!(fg = color!(red)),
-            symbol!(error),
+            Symbol::Error.str(),
             " ",
-            style!(fg = color!(magenta)),
-            symbol!(jobs),
+            "[35m",
+            Symbol::Jobs.str(),
             " ",
             // Missing HOST
-            style!(fg = color!(reset)),
+            "[39m",
             "/",
             " ",
-            chevron!(color!(blue)),
-            style!(reset),
-            " "
+            tip!(blue)
         );
         println!("{result}");
         println!("{expected}");
@@ -313,20 +341,17 @@ mod tests {
                 },
             )
         });
-        let expected = concat!(
-            style!(reset to bg = color!(black)),
+        let expected = expected!(
+            "[31;40m",
             " ",
-            style!(fg = color!(red)),
-            symbol!(error),
+            Symbol::Error.str(),
+            " ",
             // Missing jobs
             // Missing HOST
-            " ",
-            style!(fg = color!(reset)),
+            "[39m",
             "path",
             " ",
-            chevron!(color!(blue)),
-            style!(reset),
-            " "
+            tip!(blue)
         );
         println!("{result}");
         println!("{expected}");
@@ -348,16 +373,14 @@ mod tests {
                 },
             )
         });
-        let expected = concat!(
-            style!(reset to bg = color!(black)),
+        let expected = expected!(
+            "[;40m",
             " ",
             // Missing statuses
             // Missing HOST
             "~",
             " ",
-            chevron!(color!(blue)),
-            style!(reset),
-            " "
+            tip!(blue)
         );
         println!("{result}");
         println!("{expected}");
@@ -369,7 +392,7 @@ mod tests {
         let result = test(|s| {
             render_inner(
                 s,
-                Some(String::from("[31mH")),
+                Some(String::from(HOST)),
                 true,
                 true,
                 &MockEnv {
@@ -381,28 +404,30 @@ mod tests {
                 },
             )
         });
-        let expected = concat!(
-            style!(reset to bg = color!(black)),
+        let expected = expected!(
+            "[31;40m",
             " ",
-            style!(fg = color!(red), symbol!(error)),
+            Symbol::Error.str(),
             " ",
-            style!(fg = color!(magenta), symbol!(jobs)),
+            "[35m",
+            Symbol::Jobs.str(),
             " ",
-            style!(fg = color!(yellow), symbol!(pkg)),
+            "[33m",
+            Symbol::Package.str(),
             " ",
-            style!(fg = color!(red), symbol!(direnv)),
+            "[31m",
+            Symbol::Direnv.str(),
             " ",
-            style!(fg = color!(green), symbol!(python)),
+            "[32m",
+            Symbol::Python.str(),
             " ",
-            style!(fg = color!(reset)),
-            style!(fg = color!(red), "H"),
-            style!(reset to bg = color!(black)),
+            "[39m",
+            HOST,
+            "[;40m",
             " ",
             "~",
             " ",
-            chevron!(color!(blue)),
-            style!(reset),
-            " "
+            tip!(blue)
         );
         println!("{result}");
         println!("{expected}");
@@ -414,7 +439,7 @@ mod tests {
         let result = test(|s| {
             render_inner(
                 s,
-                Some(String::from("[31mH")),
+                Some(String::from(HOST)),
                 true,
                 true,
                 &MockEnv {
@@ -426,24 +451,24 @@ mod tests {
                 },
             )
         });
-        let expected = concat!(
-            style!(reset to bg = color!(black)),
+        let expected = expected!(
+            "[31;40m",
             " ",
-            style!(fg = color!(red), symbol!(error)),
+            Symbol::Error.str(),
             " ",
-            style!(fg = color!(magenta), symbol!(jobs)),
+            "[35m",
+            Symbol::Jobs.str(),
             " ",
-            style!(fg = color!(red), symbol!(direnv)),
+            "[31m",
+            Symbol::Direnv.str(),
             " ",
-            style!(fg = color!(reset)),
-            style!(fg = color!(red), "H"),
-            style!(reset to bg = color!(black)),
+            "[39m",
+            HOST,
+            "[;40m",
             " ",
             "~",
             " ",
-            chevron!(color!(blue)),
-            style!(reset),
-            " "
+            tip!(blue)
         );
         println!("{result}");
         println!("{expected}");
@@ -455,7 +480,7 @@ mod tests {
         let result = test(|s| {
             render_inner(
                 s,
-                Some(String::from("[31mH")),
+                Some(String::from(HOST)),
                 true,
                 true,
                 &MockEnv {
@@ -467,24 +492,24 @@ mod tests {
                 },
             )
         });
-        let expected = concat!(
-            style!(reset to bg = color!(black)),
+        let expected = expected!(
+            "[31;40m",
             " ",
-            style!(fg = color!(red), symbol!(error)),
+            Symbol::Error.str(),
             " ",
-            style!(fg = color!(magenta), symbol!(jobs)),
+            "[35m",
+            Symbol::Jobs.str(),
             " ",
-            style!(fg = color!(green), symbol!(direnv)),
+            "[32m",
+            Symbol::Direnv.str(),
             " ",
-            style!(fg = color!(reset)),
-            style!(fg = color!(red), "H"),
-            style!(reset to bg = color!(black)),
+            "[39m",
+            HOST,
+            "[;40m",
             " ",
             "~",
             " ",
-            chevron!(color!(blue)),
-            style!(reset),
-            " "
+            tip!(blue)
         );
         println!("{result}");
         println!("{expected}");
@@ -496,7 +521,7 @@ mod tests {
         let result = test(|s| {
             render_inner(
                 s,
-                Some(String::from("[31mH")),
+                Some(String::from(HOST)),
                 true,
                 true,
                 &MockEnv {
@@ -508,24 +533,24 @@ mod tests {
                 },
             )
         });
-        let expected = concat!(
-            style!(reset to bg = color!(black)),
+        let expected = expected!(
+            "[31;40m",
             " ",
-            style!(fg = color!(red), symbol!(error)),
+            Symbol::Error.str(),
             " ",
-            style!(fg = color!(magenta), symbol!(jobs)),
+            "[35m",
+            Symbol::Jobs.str(),
             " ",
-            style!(fg = color!(yellow), symbol!(pkg)),
+            "[33m",
+            Symbol::Package.str(),
             " ",
-            style!(fg = color!(reset)),
-            style!(fg = color!(red), "H"),
-            style!(reset to bg = color!(black)),
+            "[39m",
+            HOST,
+            "[;40m",
             " ",
             "~",
             " ",
-            chevron!(color!(blue)),
-            style!(reset),
-            " "
+            tip!(blue)
         );
         println!("{result}");
         println!("{expected}");
@@ -537,7 +562,7 @@ mod tests {
         let result = test(|s| {
             render_inner(
                 s,
-                Some(String::from("[31mH")),
+                Some(String::from(HOST)),
                 true,
                 true,
                 &MockEnv {
@@ -549,24 +574,24 @@ mod tests {
                 },
             )
         });
-        let expected = concat!(
-            style!(reset to bg = color!(black)),
+        let expected = expected!(
+            "[31;40m",
             " ",
-            style!(fg = color!(red), symbol!(error)),
+            Symbol::Error.str(),
             " ",
-            style!(fg = color!(magenta), symbol!(jobs)),
+            "[35m",
+            Symbol::Jobs.str(),
             " ",
-            style!(fg = color!(yellow), symbol!(pkg)),
+            "[33m",
+            Symbol::Package.str(),
             " ",
-            style!(fg = color!(reset)),
-            style!(fg = color!(red), "H"),
-            style!(reset to bg = color!(black)),
+            "[39m",
+            HOST,
+            "[;40m",
             " ",
             "~",
             " ",
-            chevron!(color!(blue)),
-            style!(reset),
-            " "
+            tip!(blue)
         );
         println!("{result}");
         println!("{expected}");
@@ -578,7 +603,7 @@ mod tests {
         let result = test(|s| {
             render_inner(
                 s,
-                Some(String::from("[31mH")),
+                Some(String::from(HOST)),
                 true,
                 true,
                 &MockEnv {
@@ -590,24 +615,24 @@ mod tests {
                 },
             )
         });
-        let expected = concat!(
-            style!(reset to bg = color!(black)),
+        let expected = expected!(
+            "[31;40m",
             " ",
-            style!(fg = color!(red), symbol!(error)),
+            Symbol::Error.str(),
             " ",
-            style!(fg = color!(magenta), symbol!(jobs)),
+            "[35m",
+            Symbol::Jobs.str(),
             " ",
-            style!(fg = color!(green), symbol!(direnv)),
+            "[32m",
+            Symbol::Direnv.str(),
             " ",
-            style!(fg = color!(reset)),
-            style!(fg = color!(red), "H"),
-            style!(reset to bg = color!(black)),
+            "[39m",
+            HOST,
+            "[;40m",
             " ",
             "~",
             " ",
-            chevron!(color!(blue)),
-            style!(reset),
-            " "
+            tip!(blue)
         );
         println!("{result}");
         println!("{expected}");
@@ -619,7 +644,7 @@ mod tests {
         let result = test(|s| {
             render_inner(
                 s,
-                Some(String::from("[31mH")),
+                Some(String::from(HOST)),
                 true,
                 true,
                 &MockEnv {
@@ -631,26 +656,27 @@ mod tests {
                 },
             )
         });
-        let expected = concat!(
-            style!(reset to bg = color!(black)),
+        let expected = expected!(
+            "[31;40m",
             " ",
-            style!(fg = color!(red), symbol!(error)),
+            Symbol::Error.str(),
             " ",
-            style!(fg = color!(magenta), symbol!(jobs)),
+            "[35m",
+            Symbol::Jobs.str(),
             " ",
-            style!(fg = color!(yellow), symbol!(pkg)),
+            "[33m",
+            Symbol::Package.str(),
             " ",
-            style!(fg = color!(red), symbol!(direnv)),
+            "[31m",
+            Symbol::Direnv.str(),
             " ",
-            style!(fg = color!(reset)),
-            style!(fg = color!(red), "H"),
-            style!(reset to bg = color!(black)),
+            "[39m",
+            HOST,
+            "[;40m",
             " ",
             "~",
             " ",
-            chevron!(color!(blue)),
-            style!(reset),
-            " "
+            tip!(blue)
         );
         println!("{result}");
         println!("{expected}");
@@ -662,7 +688,7 @@ mod tests {
         let result = test(|s| {
             render_inner(
                 s,
-                Some(String::from("[31mH")),
+                Some(String::from(HOST)),
                 true,
                 true,
                 &MockEnv {
@@ -674,26 +700,27 @@ mod tests {
                 },
             )
         });
-        let expected = concat!(
-            style!(reset to bg = color!(black)),
+        let expected = expected!(
+            "[31;40m",
             " ",
-            style!(fg = color!(red), symbol!(error)),
+            Symbol::Error.str(),
             " ",
-            style!(fg = color!(magenta), symbol!(jobs)),
+            "[35m",
+            Symbol::Jobs.str(),
             " ",
-            style!(fg = color!(yellow), symbol!(pkg)),
+            "[33m",
+            Symbol::Package.str(),
             " ",
-            style!(fg = color!(green), symbol!(direnv)),
+            "[32m",
+            Symbol::Direnv.str(),
             " ",
-            style!(fg = color!(reset)),
-            style!(fg = color!(red), "H"),
-            style!(reset to bg = color!(black)),
+            "[39m",
+            HOST,
+            "[;40m",
             " ",
             "~",
             " ",
-            chevron!(color!(blue)),
-            style!(reset),
-            " "
+            tip!(blue)
         );
         println!("{result}");
         println!("{expected}");
@@ -705,7 +732,7 @@ mod tests {
         let result = test(|s| {
             render_inner(
                 s,
-                Some(String::from("[31mH")),
+                Some(String::from(HOST)),
                 true,
                 true,
                 &MockEnv {
@@ -717,26 +744,27 @@ mod tests {
                 },
             )
         });
-        let expected = concat!(
-            style!(reset to bg = color!(black)),
+        let expected = expected!(
+            "[31;40m",
             " ",
-            style!(fg = color!(red), symbol!(error)),
+            Symbol::Error.str(),
             " ",
-            style!(fg = color!(magenta), symbol!(jobs)),
+            "[35m",
+            Symbol::Jobs.str(),
             " ",
-            style!(fg = color!(yellow), symbol!(pkg)),
+            "[33m",
+            Symbol::Package.str(),
             " ",
-            style!(fg = color!(red), symbol!(direnv)),
+            "[31m",
+            Symbol::Direnv.str(),
             " ",
-            style!(fg = color!(reset)),
-            style!(fg = color!(red), "H"),
-            style!(reset to bg = color!(black)),
+            "[39m",
+            HOST,
+            "[;40m",
             " ",
             "~",
             " ",
-            chevron!(color!(blue)),
-            style!(reset),
-            " "
+            tip!(blue)
         );
         println!("{result}");
         println!("{expected}");
@@ -746,80 +774,161 @@ mod tests {
     #[test]
     fn git_sync_clean() {
         assert_eq!(
-            test(|mut s| render_git(&mut s, git::Repo::Clean(git::Sync::Behind))),
-            concat!(branch!(color!(red)), chevron!(color!(green)))
+            test_from(Color::Reset, Color::Black, |mut s| render_git(
+                &mut s,
+                git::Repo::Clean(git::Sync::Behind)
+            )),
+            expected!("[31m", Symbol::Branch.str(), tip!(green))
+                .strip_suffix("[m ")
+                .unwrap()
         );
         assert_eq!(
-            test(|mut s| render_git(&mut s, git::Repo::Clean(git::Sync::Ahead))),
-            concat!(branch!(color!(yellow)), chevron!(color!(green)))
+            test_from(Color::Reset, Color::Black, |mut s| render_git(
+                &mut s,
+                git::Repo::Clean(git::Sync::Ahead)
+            )),
+            expected!("[33m", Symbol::Branch.str(), tip!(green))
+                .strip_suffix("[m ")
+                .unwrap()
         );
         assert_eq!(
-            test(|mut s| render_git(&mut s, git::Repo::Clean(git::Sync::Diverged))),
-            concat!(branch!(color!(magenta)), chevron!(color!(green)))
+            test_from(Color::Reset, Color::Black, |mut s| render_git(
+                &mut s,
+                git::Repo::Clean(git::Sync::Diverged)
+            )),
+            expected!("[35m", Symbol::Branch.str(), tip!(green))
+                .strip_suffix("[m ")
+                .unwrap()
         );
         assert_eq!(
-            test(|mut s| render_git(&mut s, git::Repo::Clean(git::Sync::UpToDate))),
-            concat!(branch!(), chevron!(color!(green)))
+            test_from(Color::Reset, Color::Black, |mut s| render_git(
+                &mut s,
+                git::Repo::Clean(git::Sync::UpToDate)
+            )),
+            expected!(Symbol::Branch.str(), tip!(green))
+                .strip_suffix("[m ")
+                .unwrap()
         );
         assert_eq!(
-            test(|mut s| render_git(&mut s, git::Repo::Clean(git::Sync::Local))),
-            concat!(branch!(color!(blue)), chevron!(color!(green)))
+            test_from(Color::Reset, Color::Black, |mut s| render_git(
+                &mut s,
+                git::Repo::Clean(git::Sync::Local)
+            )),
+            expected!("[34m", Symbol::Branch.str(), tip!(green))
+                .strip_suffix("[m ")
+                .unwrap()
         );
     }
 
     #[test]
     fn git_sync_dirty() {
         assert_eq!(
-            test(|mut s| render_git(&mut s, git::Repo::Dirty(git::Sync::Behind))),
-            concat!(branch!(color!(red)), chevron!(color!(yellow)))
+            test_from(Color::Reset, Color::Black, |mut s| render_git(
+                &mut s,
+                git::Repo::Dirty(git::Sync::Behind)
+            )),
+            expected!("[31m", Symbol::Branch.str(), tip!(yellow))
+                .strip_suffix("[m ")
+                .unwrap()
         );
         assert_eq!(
-            test(|mut s| render_git(&mut s, git::Repo::Dirty(git::Sync::Ahead))),
-            concat!(branch!(color!(yellow)), chevron!(color!(yellow)))
+            test_from(Color::Reset, Color::Black, |mut s| render_git(
+                &mut s,
+                git::Repo::Dirty(git::Sync::Ahead)
+            )),
+            expected!("[33m", Symbol::Branch.str(), tip!(yellow))
+                .strip_suffix("[m ")
+                .unwrap()
         );
         assert_eq!(
-            test(|mut s| render_git(&mut s, git::Repo::Dirty(git::Sync::Diverged))),
-            concat!(branch!(color!(magenta)), chevron!(color!(yellow)))
+            test_from(Color::Reset, Color::Black, |mut s| render_git(
+                &mut s,
+                git::Repo::Dirty(git::Sync::Diverged)
+            )),
+            expected!("[35m", Symbol::Branch.str(), tip!(yellow))
+                .strip_suffix("[m ")
+                .unwrap()
         );
         assert_eq!(
-            test(|mut s| render_git(&mut s, git::Repo::Dirty(git::Sync::UpToDate))),
-            concat!(branch!(), chevron!(color!(yellow)))
+            test_from(Color::Reset, Color::Black, |mut s| render_git(
+                &mut s,
+                git::Repo::Dirty(git::Sync::UpToDate)
+            )),
+            expected!(Symbol::Branch.str(), tip!(yellow))
+                .strip_suffix("[m ")
+                .unwrap()
         );
         assert_eq!(
-            test(|mut s| render_git(&mut s, git::Repo::Dirty(git::Sync::Local))),
-            concat!(branch!(color!(blue)), chevron!(color!(yellow)))
+            test_from(Color::Reset, Color::Black, |mut s| render_git(
+                &mut s,
+                git::Repo::Dirty(git::Sync::Local)
+            )),
+            expected!("[34m", Symbol::Branch.str(), tip!(yellow))
+                .strip_suffix("[m ")
+                .unwrap()
         );
     }
 
     #[test]
     fn git_status() {
         assert_eq!(
-            test(|mut s| render_git(&mut s, git::Repo::None)),
-            chevron!(color!(blue))
+            test_from(Color::Reset, Color::Black, |mut s| render_git(
+                &mut s,
+                git::Repo::None
+            )),
+            tip!(blue).strip_suffix("[m ").unwrap()
         );
         assert_eq!(
-            test(|mut s| render_git(&mut s, git::Repo::Clean(git::Sync::UpToDate))),
-            concat!(branch!(), chevron!(color!(green)))
+            test_from(Color::Reset, Color::Black, |mut s| render_git(
+                &mut s,
+                git::Repo::Clean(git::Sync::UpToDate)
+            )),
+            expected!(Symbol::Branch.str(), tip!(green))
+                .strip_suffix("[m ")
+                .unwrap()
         );
         assert_eq!(
-            test(|mut s| render_git(&mut s, git::Repo::Dirty(git::Sync::UpToDate))),
-            concat!(branch!(), chevron!(color!(yellow)))
+            test_from(Color::Reset, Color::Black, |mut s| render_git(
+                &mut s,
+                git::Repo::Dirty(git::Sync::UpToDate)
+            )),
+            expected!(Symbol::Branch.str(), tip!(yellow))
+                .strip_suffix("[m ")
+                .unwrap()
         );
         assert_eq!(
-            test(|mut s| render_git(&mut s, git::Repo::Detached)),
-            concat!(branch!(), chevron!(color!(magenta)))
+            test_from(Color::Reset, Color::Black, |mut s| render_git(
+                &mut s,
+                git::Repo::Detached
+            )),
+            expected!(Symbol::Branch.str(), tip!(magenta))
+                .strip_suffix("[m ")
+                .unwrap()
         );
         assert_eq!(
-            test(|mut s| render_git(&mut s, git::Repo::Pending)),
-            concat!(symbol!(warn), chevron!(color!(cyan)))
+            test_from(Color::Reset, Color::Black, |mut s| render_git(
+                &mut s,
+                git::Repo::Pending
+            )),
+            expected!(Symbol::Warn.str(), tip!(cyan))
+                .strip_suffix("[m ")
+                .unwrap()
         );
         assert_eq!(
-            test(|mut s| render_git(&mut s, git::Repo::Untracked)),
-            concat!(branch!(), chevron!(color!(cyan)))
+            test_from(Color::Reset, Color::Black, |mut s| render_git(
+                &mut s,
+                git::Repo::Untracked
+            )),
+            expected!(Symbol::Branch.str(), tip!(cyan))
+                .strip_suffix("[m ")
+                .unwrap()
         );
         assert_eq!(
-            test(|mut s| render_git(&mut s, git::Repo::Error)),
-            chevron!(color!(red))
+            test_from(Color::Reset, Color::Black, |mut s| render_git(
+                &mut s,
+                git::Repo::Error
+            )),
+            tip!(red).strip_suffix("[m ").unwrap()
         );
     }
 }

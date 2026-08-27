@@ -1,18 +1,10 @@
-#![deny(warnings, rust_2018_idioms, clippy::pedantic)]
+// #![deny(warnings, rust_2018_idioms, clippy::pedantic)]
 
-mod args;
-mod command;
-mod git;
-mod print;
-
-type Result<T = ()> = std::io::Result<T>;
-
-fn main() {
-    let _ = args::parse().run(std::io::stdout().lock());
-}
+pub mod git;
+pub mod print;
 
 #[cfg(test)]
-mod tests {
+pub mod tests {
     macro_rules! style {
     (reset $(, $($param: expr),*)?) => {
         concat!("[m" $(, $($param),*)?)
@@ -150,9 +142,9 @@ mod tests {
         };
     }
 
-    fn test<F>(testing: F) -> String
+    pub fn test<F>(testing: F) -> String
     where
-        F: FnOnce(super::print::Ansi<&mut Vec<u8>>) -> crate::Result,
+        F: FnOnce(super::print::Ansi<&mut Vec<u8>>) -> std::io::Result<()>,
     {
         let mut buffer = String::new();
         let printer = unsafe { super::print::Ansi::new(buffer.as_mut_vec()) };

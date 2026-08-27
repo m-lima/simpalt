@@ -19,3 +19,19 @@ simd-json = { version = "0.17.3", default-features = false, features = [
 [dev-dependencies]
 regex = "1.13.1"
 tempfile = "3.27.0"
+
+[[bin]]
+name = "simpalt-prompt"
+path = "src/bin/prompt/main.rs"
+
+[[bin]]
+name = "simpalt-time"
+path = "src/bin/time/main.rs"
+
+[[bin]]
+name = "simpalt-tmux"
+path = "src/bin/tmux/main.rs"
+
+[[bin]]
+name = "simpalt-zellij"
+path = "src/bin/zellij/main.rs"

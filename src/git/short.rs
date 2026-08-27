@@ -18,6 +18,7 @@ pub enum Sync {
     Local,
 }
 
+#[must_use]
 pub fn parse(path: &std::path::Path) -> Repo {
     let Some(repo) = git2::Repository::discover(path).ok() else {
         return Repo::None;
