@@ -770,195 +770,263 @@ mod tests {
         assert_eq!(result, expected);
     }
 
-    #[test]
-    fn git_sync_clean() {
-        let result = test_from(Color::Reset, Color::Black, |mut s| {
-            render_git(&mut s, git::Repo::Clean(git::Sync::Behind))
-        });
-        let expected = expect(
-            &result,
-            [
-                "[31m",
-                Symbol::Branch.str(),
-                tip!(green).strip_suffix("[m ").unwrap(),
-            ],
-        );
-        assert_eq!(result, expected);
-        let result = test_from(Color::Reset, Color::Black, |mut s| {
-            render_git(&mut s, git::Repo::Clean(git::Sync::Ahead))
-        });
-        let expected = expect(
-            &result,
-            [
-                "[33m",
-                Symbol::Branch.str(),
-                tip!(green).strip_suffix("[m ").unwrap(),
-            ],
-        );
-        assert_eq!(result, expected);
-        let result = test_from(Color::Reset, Color::Black, |mut s| {
-            render_git(&mut s, git::Repo::Clean(git::Sync::Diverged))
-        });
-        let expected = expect(
-            &result,
-            [
-                "[35m",
-                Symbol::Branch.str(),
-                tip!(green).strip_suffix("[m ").unwrap(),
-            ],
-        );
-        assert_eq!(result, expected);
-        let result = test_from(Color::Reset, Color::Black, |mut s| {
-            render_git(&mut s, git::Repo::Clean(git::Sync::UpToDate))
-        });
-        let expected = expect(
-            &result,
-            [
-                Symbol::Branch.str(),
-                tip!(green).strip_suffix("[m ").unwrap(),
-            ],
-        );
-        assert_eq!(result, expected);
-        let result = test_from(Color::Reset, Color::Black, |mut s| {
-            render_git(&mut s, git::Repo::Clean(git::Sync::Local))
-        });
-        let expected = expect(
-            &result,
-            [
-                "[34m",
-                Symbol::Branch.str(),
-                tip!(green).strip_suffix("[m ").unwrap(),
-            ],
-        );
-        assert_eq!(result, expected);
+    mod git_clean {
+        use super::*;
+
+        #[test]
+        fn behind() {
+            let result = test_from(Color::Reset, Color::Black, |mut s| {
+                render_git(&mut s, git::Repo::Clean(git::Sync::Behind))
+            });
+            let expected = expect(
+                &result,
+                [
+                    "[31m",
+                    Symbol::Branch.str(),
+                    tip!(green).strip_suffix("[m ").unwrap(),
+                ],
+            );
+            assert_eq!(result, expected);
+        }
+
+        #[test]
+        fn ahead() {
+            let result = test_from(Color::Reset, Color::Black, |mut s| {
+                render_git(&mut s, git::Repo::Clean(git::Sync::Ahead))
+            });
+            let expected = expect(
+                &result,
+                [
+                    "[33m",
+                    Symbol::Branch.str(),
+                    tip!(green).strip_suffix("[m ").unwrap(),
+                ],
+            );
+            assert_eq!(result, expected);
+        }
+
+        #[test]
+        fn diverged() {
+            let result = test_from(Color::Reset, Color::Black, |mut s| {
+                render_git(&mut s, git::Repo::Clean(git::Sync::Diverged))
+            });
+            let expected = expect(
+                &result,
+                [
+                    "[35m",
+                    Symbol::Branch.str(),
+                    tip!(green).strip_suffix("[m ").unwrap(),
+                ],
+            );
+            assert_eq!(result, expected);
+        }
+
+        #[test]
+        fn up_to_date() {
+            let result = test_from(Color::Reset, Color::Black, |mut s| {
+                render_git(&mut s, git::Repo::Clean(git::Sync::UpToDate))
+            });
+            let expected = expect(
+                &result,
+                [
+                    Symbol::Branch.str(),
+                    tip!(green).strip_suffix("[m ").unwrap(),
+                ],
+            );
+            assert_eq!(result, expected);
+        }
+
+        #[test]
+        fn local() {
+            let result = test_from(Color::Reset, Color::Black, |mut s| {
+                render_git(&mut s, git::Repo::Clean(git::Sync::Local))
+            });
+            let expected = expect(
+                &result,
+                [
+                    "[34m",
+                    Symbol::Branch.str(),
+                    tip!(green).strip_suffix("[m ").unwrap(),
+                ],
+            );
+            assert_eq!(result, expected);
+        }
     }
 
-    #[test]
-    fn git_sync_dirty() {
-        let result = test_from(Color::Reset, Color::Black, |mut s| {
-            render_git(&mut s, git::Repo::Dirty(git::Sync::Behind))
-        });
-        let expected = expect(
-            &result,
-            [
-                "[31m",
-                Symbol::Branch.str(),
-                tip!(yellow).strip_suffix("[m ").unwrap(),
-            ],
-        );
-        assert_eq!(result, expected);
-        let result = test_from(Color::Reset, Color::Black, |mut s| {
-            render_git(&mut s, git::Repo::Dirty(git::Sync::Ahead))
-        });
-        let expected = expect(
-            &result,
-            [
-                "[33m",
-                Symbol::Branch.str(),
-                tip!(yellow).strip_suffix("[m ").unwrap(),
-            ],
-        );
-        assert_eq!(result, expected);
-        let result = test_from(Color::Reset, Color::Black, |mut s| {
-            render_git(&mut s, git::Repo::Dirty(git::Sync::Diverged))
-        });
-        let expected = expect(
-            &result,
-            [
-                "[35m",
-                Symbol::Branch.str(),
-                tip!(yellow).strip_suffix("[m ").unwrap(),
-            ],
-        );
-        assert_eq!(result, expected);
-        let result = test_from(Color::Reset, Color::Black, |mut s| {
-            render_git(&mut s, git::Repo::Dirty(git::Sync::UpToDate))
-        });
-        let expected = expect(
-            &result,
-            [
-                Symbol::Branch.str(),
-                tip!(yellow).strip_suffix("[m ").unwrap(),
-            ],
-        );
-        assert_eq!(result, expected);
-        let result = test_from(Color::Reset, Color::Black, |mut s| {
-            render_git(&mut s, git::Repo::Dirty(git::Sync::Local))
-        });
-        let expected = expect(
-            &result,
-            [
-                "[34m",
-                Symbol::Branch.str(),
-                tip!(yellow).strip_suffix("[m ").unwrap(),
-            ],
-        );
-        assert_eq!(result, expected);
+    mod git_dirty {
+        use super::*;
+
+        #[test]
+        fn behind() {
+            let result = test_from(Color::Reset, Color::Black, |mut s| {
+                render_git(&mut s, git::Repo::Dirty(git::Sync::Behind))
+            });
+            let expected = expect(
+                &result,
+                [
+                    "[31m",
+                    Symbol::Branch.str(),
+                    tip!(yellow).strip_suffix("[m ").unwrap(),
+                ],
+            );
+            assert_eq!(result, expected);
+        }
+
+        #[test]
+        fn ahead() {
+            let result = test_from(Color::Reset, Color::Black, |mut s| {
+                render_git(&mut s, git::Repo::Dirty(git::Sync::Ahead))
+            });
+            let expected = expect(
+                &result,
+                [
+                    "[33m",
+                    Symbol::Branch.str(),
+                    tip!(yellow).strip_suffix("[m ").unwrap(),
+                ],
+            );
+            assert_eq!(result, expected);
+        }
+
+        #[test]
+        fn diverged() {
+            let result = test_from(Color::Reset, Color::Black, |mut s| {
+                render_git(&mut s, git::Repo::Dirty(git::Sync::Diverged))
+            });
+            let expected = expect(
+                &result,
+                [
+                    "[35m",
+                    Symbol::Branch.str(),
+                    tip!(yellow).strip_suffix("[m ").unwrap(),
+                ],
+            );
+            assert_eq!(result, expected);
+        }
+
+        #[test]
+        fn up_to_date() {
+            let result = test_from(Color::Reset, Color::Black, |mut s| {
+                render_git(&mut s, git::Repo::Dirty(git::Sync::UpToDate))
+            });
+            let expected = expect(
+                &result,
+                [
+                    Symbol::Branch.str(),
+                    tip!(yellow).strip_suffix("[m ").unwrap(),
+                ],
+            );
+            assert_eq!(result, expected);
+        }
+
+        #[test]
+        fn local() {
+            let result = test_from(Color::Reset, Color::Black, |mut s| {
+                render_git(&mut s, git::Repo::Dirty(git::Sync::Local))
+            });
+            let expected = expect(
+                &result,
+                [
+                    "[34m",
+                    Symbol::Branch.str(),
+                    tip!(yellow).strip_suffix("[m ").unwrap(),
+                ],
+            );
+            assert_eq!(result, expected);
+        }
     }
 
-    #[test]
-    fn git_status() {
-        let result = test_from(Color::Reset, Color::Black, |mut s| {
-            render_git(&mut s, git::Repo::None)
-        });
-        let expected = expect(&result, [tip!(blue).strip_suffix("[m ").unwrap()]);
-        assert_eq!(result, expected);
-        let result = test_from(Color::Reset, Color::Black, |mut s| {
-            render_git(&mut s, git::Repo::Clean(git::Sync::UpToDate))
-        });
-        let expected = expect(
-            &result,
-            [
-                Symbol::Branch.str(),
-                tip!(green).strip_suffix("[m ").unwrap(),
-            ],
-        );
-        assert_eq!(result, expected);
-        let result = test_from(Color::Reset, Color::Black, |mut s| {
-            render_git(&mut s, git::Repo::Dirty(git::Sync::UpToDate))
-        });
-        let expected = expect(
-            &result,
-            [
-                Symbol::Branch.str(),
-                tip!(yellow).strip_suffix("[m ").unwrap(),
-            ],
-        );
-        assert_eq!(result, expected);
-        let result = test_from(Color::Reset, Color::Black, |mut s| {
-            render_git(&mut s, git::Repo::Detached)
-        });
-        let expected = expect(
-            &result,
-            [
-                Symbol::Branch.str(),
-                tip!(magenta).strip_suffix("[m ").unwrap(),
-            ],
-        );
-        assert_eq!(result, expected);
-        let result = test_from(Color::Reset, Color::Black, |mut s| {
-            render_git(&mut s, git::Repo::Pending)
-        });
-        let expected = expect(
-            &result,
-            [Symbol::Warn.str(), tip!(cyan).strip_suffix("[m ").unwrap()],
-        );
-        assert_eq!(result, expected);
-        let result = test_from(Color::Reset, Color::Black, |mut s| {
-            render_git(&mut s, git::Repo::Untracked)
-        });
-        let expected = expect(
-            &result,
-            [
-                Symbol::Branch.str(),
-                tip!(cyan).strip_suffix("[m ").unwrap(),
-            ],
-        );
-        assert_eq!(result, expected);
-        let result = test_from(Color::Reset, Color::Black, |mut s| {
-            render_git(&mut s, git::Repo::Error)
-        });
-        let expected = expect(&result, [tip!(red).strip_suffix("[m ").unwrap()]);
-        assert_eq!(result, expected);
+    mod git_status {
+        use super::*;
+
+        #[test]
+        fn none() {
+            let result = test_from(Color::Reset, Color::Black, |mut s| {
+                render_git(&mut s, git::Repo::None)
+            });
+            let expected = expect(&result, [tip!(blue).strip_suffix("[m ").unwrap()]);
+            assert_eq!(result, expected);
+        }
+
+        #[test]
+        fn up_to_date_clean() {
+            let result = test_from(Color::Reset, Color::Black, |mut s| {
+                render_git(&mut s, git::Repo::Clean(git::Sync::UpToDate))
+            });
+            let expected = expect(
+                &result,
+                [
+                    Symbol::Branch.str(),
+                    tip!(green).strip_suffix("[m ").unwrap(),
+                ],
+            );
+            assert_eq!(result, expected);
+        }
+
+        #[test]
+        fn up_to_date_dirty() {
+            let result = test_from(Color::Reset, Color::Black, |mut s| {
+                render_git(&mut s, git::Repo::Dirty(git::Sync::UpToDate))
+            });
+            let expected = expect(
+                &result,
+                [
+                    Symbol::Branch.str(),
+                    tip!(yellow).strip_suffix("[m ").unwrap(),
+                ],
+            );
+            assert_eq!(result, expected);
+        }
+
+        #[test]
+        fn detached() {
+            let result = test_from(Color::Reset, Color::Black, |mut s| {
+                render_git(&mut s, git::Repo::Detached)
+            });
+            let expected = expect(
+                &result,
+                [
+                    Symbol::Branch.str(),
+                    tip!(magenta).strip_suffix("[m ").unwrap(),
+                ],
+            );
+            assert_eq!(result, expected);
+        }
+
+        #[test]
+        fn pending() {
+            let result = test_from(Color::Reset, Color::Black, |mut s| {
+                render_git(&mut s, git::Repo::Pending)
+            });
+            let expected = expect(
+                &result,
+                [Symbol::Warn.str(), tip!(cyan).strip_suffix("[m ").unwrap()],
+            );
+            assert_eq!(result, expected);
+        }
+
+        #[test]
+        fn untracked() {
+            let result = test_from(Color::Reset, Color::Black, |mut s| {
+                render_git(&mut s, git::Repo::Untracked)
+            });
+            let expected = expect(
+                &result,
+                [
+                    Symbol::Branch.str(),
+                    tip!(cyan).strip_suffix("[m ").unwrap(),
+                ],
+            );
+            assert_eq!(result, expected);
+        }
+
+        #[test]
+        fn error() {
+            let result = test_from(Color::Reset, Color::Black, |mut s| {
+                render_git(&mut s, git::Repo::Error)
+            });
+            let expected = expect(&result, [tip!(red).strip_suffix("[m ").unwrap()]);
+            assert_eq!(result, expected);
+        }
     }
 }

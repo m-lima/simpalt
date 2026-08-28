@@ -100,18 +100,18 @@ mod tests {
         expected
     }
 
-    pub fn test<F>(testing: F) -> String
+    pub fn test<F>(t: F) -> String
     where
         F: FnOnce(simpalt::print::Ansi<&mut Vec<u8>>) -> std::io::Result<()>,
     {
         let mut buffer = String::new();
         let printer = unsafe { simpalt::print::Ansi::new(buffer.as_mut_vec()) };
-        testing(printer).unwrap();
+        t(printer).unwrap();
         buffer
     }
 
     #[cfg(test)]
-    pub fn test_from<F>(fg: simpalt::print::Color, bg: simpalt::print::Color, testing: F) -> String
+    pub fn test_from<F>(fg: simpalt::print::Color, bg: simpalt::print::Color, t: F) -> String
     where
         F: FnOnce(simpalt::print::Ansi<&mut Vec<u8>>) -> std::io::Result<()>,
     {
@@ -120,7 +120,7 @@ mod tests {
         let mut buffer = String::new();
         let mut printer = unsafe { simpalt::print::Ansi::new(buffer.as_mut_vec()) };
         printer.fg(fg).bg(bg).txt("").unwrap();
-        testing(printer).unwrap();
+        t(printer).unwrap();
         let (len, _) = buffer.char_indices().find(|(_, c)| *c == 'm').unwrap();
         buffer.drain(..=len);
         buffer
