@@ -1,22 +1,22 @@
 use chrono::Timelike;
-use simpalt::print;
+use simpalt::print::{Color, Printer};
 
 pub fn render<P>(mut printer: P) -> crate::Result
 where
-    P: simpalt::print::Printer,
+    P: Printer,
 {
     let time = chrono::DateTime::<chrono::Local>::from(std::time::SystemTime::now());
 
     printer
-        .fg(print::Color::Vga(23))
-        .bg(print::Color::Reset)
-        .txt(format!(
+        .fg(Color::Vga(23))
+        .bg(Color::Reset)
+        .txt(format_args!(
             "{h:02}:{m:02}:{s:02}",
             h = time.hour(),
             m = time.minute(),
             s = time.second(),
         ))?
-        .fg(print::Color::Reset)
+        .fg(Color::Reset)
         .txt("")?
         .flush()
 }
@@ -24,6 +24,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
+    use simpalt::print;
 
     fn test<F>(test: F) -> String
     where

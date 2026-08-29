@@ -102,7 +102,7 @@ where
                 .div(Div::ChevronLeft, Color::Blue)?;
 
             if let Some(pwd) = enver.home().and_then(|home| pwd.strip_prefix(&home)) {
-                printer.gap()?.txt("~")?.txt(pwd)?.gap()?;
+                printer.txt_gap(format_args!("~{pwd}"))?;
             } else {
                 printer.txt_gap(pwd)?;
             }
@@ -137,10 +137,7 @@ where
                 printer
                     .fg(Color::Black)
                     .div(Div::ChevronLeft, Color::Green)?
-                    .gap()?
-                    .txt(Symbol::Branch)?
-                    .txt(&head)?
-                    .gap()?;
+                    .txt_gap(format_args!("{}{head}", Symbol::Branch))?;
             } else {
                 render_changes(printer, changes)?;
                 if !matches!(
@@ -159,10 +156,7 @@ where
                 printer
                     .fg(Color::Black)
                     .div(Div::ChevronLeft, Color::Yellow)?
-                    .gap()?
-                    .txt(Symbol::Branch)?
-                    .txt(&head)?
-                    .gap()?;
+                    .txt_gap(format_args!("{}{head}", Symbol::Branch))?;
             }
         }
         git::Repo::Detached(head, changes) => {
@@ -180,10 +174,11 @@ where
             printer
                 .fg(Color::Black)
                 .div(Div::ChevronLeft, Color::Cyan)?
-                .gap()?
-                .txt(Symbol::Branch)?
-                .txt(&head)?
-                .txt_gap(Symbol::from(pending))?;
+                .txt_gap(format_args!(
+                    "{}{head} {}",
+                    Symbol::Branch,
+                    Symbol::from(pending)
+                ))?;
         }
         git::Repo::New(changes) => {
             render_changes(printer, changes)?;
@@ -204,40 +199,28 @@ where
         printer.div(Div::ChevronLeft, Color::Black)?;
         printer
             .fg(Color::Green)
-            .gap()?
-            .txt("+")?
-            .txt(changes.added)?
-            .gap()?;
+            .txt_gap(format_args!("+{}", changes.added))?;
     }
 
     if changes.removed > 0 {
         printer.div(Div::ChevronLeft, Color::Black)?;
         printer
             .fg(Color::Red)
-            .gap()?
-            .txt("-")?
-            .txt(changes.removed)?
-            .gap()?;
+            .txt_gap(format_args!("-{}", changes.removed))?;
     }
 
     if changes.modified > 0 {
         printer.div(Div::ChevronLeft, Color::Black)?;
         printer
             .fg(Color::Blue)
-            .gap()?
-            .txt("~")?
-            .txt(changes.modified)?
-            .gap()?;
+            .txt_gap(format_args!("~{}", changes.modified))?;
     }
 
     if changes.conflicted > 0 {
         printer.div(Div::ChevronLeft, Color::Black)?;
         printer
             .fg(Color::Magenta)
-            .gap()?
-            .txt("!")?
-            .txt(changes.modified)?
-            .gap()?;
+            .txt_gap(format_args!("!{}", changes.conflicted))?;
     }
     Ok(())
 }
@@ -252,27 +235,23 @@ where
         git::Sync::Local => {
             printer
                 .fg(Color::Cyan)
-                .txt_gap(Symbol::Local)?
-                .txt_gap("local")?;
+                .txt_gap(format_args!("{} local", Symbol::Local))?;
         }
         git::Sync::Gone => {
             printer
                 .fg(Color::Magenta)
-                .txt_gap(Symbol::Gone)?
-                .txt_gap("gone")?;
+                .txt_gap(format_args!("{} gone", Symbol::Gone))?;
         }
         git::Sync::Tracked { ahead, behind } => {
             if ahead > 0 {
                 printer
                     .fg(Color::Yellow)
-                    .txt_gap(Symbol::Ahead)?
-                    .txt_gap(ahead)?;
+                    .txt_gap(format_args!("{} {ahead}", Symbol::Ahead))?;
             }
             if behind > 0 {
                 printer
                     .fg(Color::Red)
-                    .txt_gap(Symbol::Behind)?
-                    .txt_gap(behind)?;
+                    .txt_gap(format_args!("{} {behind}", Symbol::Behind))?;
             }
         }
     }

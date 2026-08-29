@@ -1,17 +1,18 @@
 use crate::Result;
+
 use simpalt::{
     git::long as git,
     print::{Color, Div, Printer, Symbol},
 };
 
-pub fn render<P>(printer: P, pwd: String) -> Result
+pub fn render<P>(printer: &mut P, pwd: String) -> Result
 where
     P: Printer,
 {
     render_inner(printer, git::parse(&std::path::PathBuf::from(pwd)))
 }
 
-pub fn render_inner<P>(mut printer: P, repo: git::Repo) -> Result
+fn render_inner<P>(printer: &mut P, repo: git::Repo) -> Result
 where
     P: Printer,
 {
@@ -19,37 +20,34 @@ where
     where
         P: Printer,
     {
-        Ok(printer
-            .fg(Color::Vga(237))
-            .txt(Div::SlantTopRight)?
-            .bg(Color::Vga(237)))
+        printer.div(Div::SlantTopRight, Color::Vga(237))
     }
 
     match repo {
-        git::Repo::None | git::Repo::Error => return Ok(()),
+        git::Repo::None | git::Repo::Error => {}
         git::Repo::Regular(head, sync, changes) => {
-            add_div(&mut printer)?
+            add_div(printer)?
                 .fg(Color::Magenta)
                 .gap()?
                 .txt(Symbol::Branch)?
                 .fg(Color::Vga(246))
                 .txt(head)?
                 .gap()?;
-            let has_changes = render_changes(&mut printer, changes)?;
-            render_sync(&mut printer, sync, has_changes)?;
+            let has_changes = render_changes(printer, changes)?;
+            render_sync(printer, sync, has_changes)?;
         }
         git::Repo::Detached(head, changes) => {
-            add_div(&mut printer)?
+            add_div(printer)?
                 .fg(Color::Red)
                 .gap()?
                 .txt(Symbol::Warn)?
                 .fg(Color::Vga(246))
                 .txt(head)?
                 .gap()?;
-            render_changes(&mut printer, changes)?;
+            render_changes(printer, changes)?;
         }
         git::Repo::Pending(head, pending, changes) => {
-            add_div(&mut printer)?
+            add_div(printer)?
                 .fg(Color::Magenta)
                 .gap()?
                 .txt(Symbol::Branch)?
@@ -58,14 +56,14 @@ where
                 .gap()?
                 .fg(Color::Vga(246))
                 .txt_gap(Symbol::from(pending))?;
-            render_changes(&mut printer, changes)?;
+            render_changes(printer, changes)?;
         }
         git::Repo::New(changes) => {
-            render_changes(&mut printer, changes)?;
+            render_changes(printer, changes)?;
         }
     }
 
-    printer.flush()
+    Ok(())
 }
 
 fn render_changes<P>(printer: &mut P, changes: git::Changes) -> Result<bool>
@@ -86,37 +84,25 @@ where
     if changes.added > 0 {
         printer
             .fg(Color::Green)
-            .gap()?
-            .txt("+")?
-            .txt(changes.added)?
-            .gap()?;
+            .txt_gap(format_args!("+{}", changes.added))?;
     }
 
     if changes.removed > 0 {
         printer
             .fg(Color::Red)
-            .gap()?
-            .txt("-")?
-            .txt(changes.removed)?
-            .gap()?;
+            .txt_gap(format_args!("-{}", changes.removed))?;
     }
 
     if changes.modified > 0 {
         printer
             .fg(Color::Blue)
-            .gap()?
-            .txt("~")?
-            .txt(changes.modified)?
-            .gap()?;
+            .txt_gap(format_args!("~{}", changes.modified))?;
     }
 
     if changes.conflicted > 0 {
         printer
             .fg(Color::Magenta)
-            .gap()?
-            .txt("!")?
-            .txt(changes.conflicted)?
-            .gap()?;
+            .txt_gap(format_args!("!{}", changes.conflicted))?;
     }
 
     Ok(has_changes)
@@ -140,21 +126,18 @@ where
     match sync {
         git::Sync::Local => add_slant(printer, has_changes)?
             .fg(Color::Cyan)
-            .txt_gap(Symbol::Local)?
-            .txt_gap("local")
+            .txt_gap(format_args!("{} local", Symbol::Local))
             .map(|_| ()),
         git::Sync::Gone => add_slant(printer, has_changes)?
             .fg(Color::Magenta)
-            .txt_gap(Symbol::Gone)?
-            .txt_gap("gone")
+            .txt_gap(format_args!("{} gone", Symbol::Gone))
             .map(|_| ()),
         git::Sync::Tracked { ahead, behind } => {
             let has_ahead = ahead > 0;
             if has_ahead {
                 add_slant(printer, has_changes)?
                     .fg(Color::Yellow)
-                    .txt_gap(Symbol::Ahead)?
-                    .txt_gap(ahead)?;
+                    .txt_gap(format_args!("{} {ahead}", Symbol::Ahead))?;
             }
 
             if behind > 0 {
@@ -164,9 +147,7 @@ where
 
                 printer
                     .fg(Color::Red)
-                    .gap()?
-                    .txt_gap(Symbol::Behind)?
-                    .txt_gap(behind)?;
+                    .txt_gap(format_args!("{} {behind}", Symbol::Behind))?;
             }
 
             Ok(())
@@ -176,25 +157,19 @@ where
 
 #[cfg(test)]
 mod tests {
+    use super::super::tests::expect;
     use super::*;
 
-    pub fn expect<'a, I: IntoIterator<Item = &'a str>>(result: &str, expected: I) -> String {
-        let expected = String::from_iter(expected);
-        println!("{result}");
-        println!("{expected}");
-        expected
-    }
-
-    pub fn test(repo: git::Repo) -> String {
+    fn test(repo: git::Repo) -> String {
         {
             let mut buffer = String::new();
-            let printer = unsafe { simpalt::print::Ansi::new(buffer.as_mut_vec()) };
-            render_inner(printer, repo.clone()).unwrap();
+            let mut printer = unsafe { simpalt::print::Ansi::new(buffer.as_mut_vec()) };
+            render_inner(&mut printer, repo.clone()).unwrap();
             println!("{buffer}[m");
         }
         let mut buffer = String::new();
-        let printer = unsafe { simpalt::print::Tmux::new(buffer.as_mut_vec()) };
-        render_inner(printer, repo).unwrap();
+        let mut printer = unsafe { simpalt::print::Tmux::new(buffer.as_mut_vec()) };
+        render_inner(&mut printer, repo).unwrap();
         buffer
     }
 
