@@ -70,6 +70,8 @@ pub enum Symbol {
     // Media
     Pause,
     Play,
+    Song,
+    Artist,
 
     // Git
     New,
@@ -106,6 +108,8 @@ impl Symbol {
             Symbol::Python => "󰌠",
             Symbol::Pause => "",
             Symbol::Play => "",
+            Symbol::Song => "",
+            Symbol::Artist => "",
             Symbol::New => "",
             Symbol::Branch => "",
             Symbol::Ref => "➦",

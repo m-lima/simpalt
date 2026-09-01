@@ -32,7 +32,12 @@
       in
       (helper.lib.rust.helper inputs system ./. {
         systemLinker = pkgs.stdenv.isLinux;
-        buildInputs = pkgs: [ pkgs.openssl ];
+        buildInputs =
+          pkgs:
+          [
+            pkgs.openssl
+          ]
+          ++ pkgs.lib.optional pkgs.stdenv.isLinux pkgs.dbus;
         nativeBuildInputs = pkgs: [ pkgs.pkg-config ];
         formatters = {
           shfmt.enable = true;
@@ -53,6 +58,14 @@
               ${pkgs.diffutils}/bin/diff $src/simpalt.nu <(echo "$NU")
             '';
           };
+          devShell =
+            prev:
+            prev
+            // {
+              env = prev.env // {
+                LD_LIBRARY_PATH = pkgs.lib.makeLibraryPath [ pkgs.dbus ];
+              };
+            };
         };
       }).outputs
     )

@@ -15,6 +15,21 @@ simd-json = { version = "0.17.3", default-features = false, features = [
   "swar-number-parsing",
   "runtime-detection",
 ] }
+unicode-segmentation = { version = "1.13.3", default-features = false, optional = true }
+zellij-tile = { version = "0.45.1", optional = true }
+
+[features]
+default = ["media"]
+zellij = ["dep:zellij-tile"]
+media = ["dep:unicode-segmentation"]
+
+[target.'cfg(target_os = "linux")']
+dependencies = { mpris = { version = "2.1.0", optinal = true } }
+features = { media = ["dep:mpris"] }
+
+[target.'cfg(target_os = "macos")']
+dependencies = { playwire = { version = "1.0.0", optinal = true } }
+features = { media = ["dep:playwire"] }
 
 [dev-dependencies]
 regex = "1.13.1"
