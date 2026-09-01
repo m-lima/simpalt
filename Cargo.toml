@@ -28,8 +28,8 @@ dependencies = { mpris = { version = "2.1.0", optinal = true } }
 features = { media = ["dep:mpris"] }
 
 [target.'cfg(target_os = "macos")']
-dependencies = { playwire = { version = "1.0.0", optinal = true } }
-features = { media = ["dep:playwire"] }
+dependencies = { media-remote = { version = "0.5.2", default-features = false } }
+features = { media = ["dep:media-remote"] }
 
 [dev-dependencies]
 regex = "1.13.1"
