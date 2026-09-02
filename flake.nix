@@ -125,6 +125,7 @@
           {
             symbol,
             toggleBinding ? null,
+            minWidth ? 120,
           }:
           ''
             __simpalt_build_prompt() {
@@ -134,19 +135,19 @@
           + (
             if toggleBinding == null then
               ''
-                simpalt l -z '${symbol}' $has_error $has_jobs
+                simpalt l -m z -s '${symbol}' $has_error $has_jobs
               ''
             else
               ''
-                simpalt l -z $SIMPALT_MODE '${symbol}' $has_error $has_jobs
+                simpalt l -m z $SIMPALT_MODE -s '${symbol}' $has_error $has_jobs
               ''
           )
           + ''
             }
 
             __simpalt_build_r_prompt() {
-              if (( COLUMNS > 120 )); then
-                simpalt r -z
+              if (( COLUMNS > ${toString minWidth} )); then
+                simpalt r -m z
               fi
             }
           ''
