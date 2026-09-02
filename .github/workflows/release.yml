@@ -4,7 +4,7 @@ on:
     tags:
       - v*
 env:
-  CRATE_NAME: simpalt
+  CRATE_NAME: simpalt-prompt
   CHECK_INTEGRATIONS: true
   RUSTFLAGS: "-Dwarnings"
 jobs:
@@ -43,6 +43,10 @@ jobs:
         run: cargo fmt --all -- --check
       - name: Install cargo-hack
         run: cargo install cargo-hack
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y pkg-config libdbus-1-dev libssl-dev
       - name: Check integrations
         if: env.CHECK_INTEGRATIONS
         run: |
