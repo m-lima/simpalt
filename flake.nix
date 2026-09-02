@@ -127,6 +127,9 @@
             toggleBinding ? null,
             minWidth ? 120,
           }:
+          let
+            bin = "${prompt.outputs.packages.default}/bin/simpalt-prompt";
+          in
           ''
             __simpalt_build_prompt() {
               (( $? != 0 )) && local has_error='-e'
@@ -135,11 +138,11 @@
           + (
             if toggleBinding == null then
               ''
-                simpalt l -m z -s '${symbol}' $has_error $has_jobs
+                ${bin} l -m z -s '${symbol}' $has_error $has_jobs
               ''
             else
               ''
-                simpalt l -m z $SIMPALT_MODE -s '${symbol}' $has_error $has_jobs
+                ${bin} l -m z $SIMPALT_MODE -s '${symbol}' $has_error $has_jobs
               ''
           )
           + ''
@@ -147,7 +150,7 @@
 
             __simpalt_build_r_prompt() {
               if (( COLUMNS > ${toString minWidth} )); then
-                simpalt r -m z
+                ${bin} r -m z
               fi
             }
           ''
