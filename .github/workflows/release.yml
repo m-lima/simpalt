@@ -87,18 +87,30 @@ jobs:
         uses: actions/checkout@v4
       - name: Build
         run: cargo build --release --verbose
-      - name: Upload asset (UNIX)
+      - name: Upload prompt asset (UNIX)
         if: matrix.os != 'windows-latest'
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.os }}
-          path: ${{ github.workspace }}/target/release/simpalt
-      - name: Upload asset (WINDOWS)
+          path: ${{ github.workspace }}/target/release/simpalt-prompt
+      - name: Upload prompt asset (WINDOWS)
         if: matrix.os == 'windows-latest'
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.os }}
-          path: ${{ github.workspace }}/target/release/simpalt.exe
+          path: ${{ github.workspace }}/target/release/simpalt-prompt.exe
+      - name: Upload tmux asset (UNIX)
+        if: matrix.os != 'windows-latest'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.os }}
+          path: ${{ github.workspace }}/target/release/simpalt-tmux
+      - name: Upload tmux asset (WINDOWS)
+        if: matrix.os == 'windows-latest'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.os }}
+          path: ${{ github.workspace }}/target/release/simpalt-tmux.exe
   release:
     name: Release
     needs:
@@ -120,9 +132,12 @@ jobs:
           [ "${last_tag}" ] && last_tag="${last_tag}.." || true
           echo '**Changes since the last release**' > RELEASE_CHANGES
           git log --format='- %h %s' "${last_tag}${{ github.ref }}" >> RELEASE_CHANGES
-          mv ubuntu-latest/simpalt simpalt-ubuntu
-          mv macOS-latest/simpalt simpalt-macOS
-          mv windows-latest/simpalt.exe simpalt-windows.exe
+          mv ubuntu-latest/simpalt-prompt simpalt-ubuntu
+          mv macOS-latest/simpalt-prompt simpalt-macOS
+          mv windows-latest/simpalt-prompt.exe simpalt-windows.exe
+          mv ubuntu-latest/simpalt-tmux simpalt-tmux-ubuntu
+          mv macOS-latest/simpalt-tmux simpalt-tmux-macOS
+          mv windows-latest/simpalt-tmux.exe simpalt-tmux-windows.exe
       - name: Publish
         uses: softprops/action-gh-release@v1
         with:
@@ -133,3 +148,6 @@ jobs:
             simpalt-ubuntu
             simpalt-macOS
             simpalt-windows.exe
+            simpalt-tmux-ubuntu
+            simpalt-tmux-macOS
+            simpalt-tmux-windows.exe
