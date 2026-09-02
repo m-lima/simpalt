@@ -1,0 +1,10 @@
+[package]
+name = "simpalt"
+edition.workspace = true
+version.workspace = true
+
+[dependencies]
+git2.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true

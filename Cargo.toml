@@ -1,52 +1,25 @@
-[package]
-name = "simpalt"
-version = "0.3.14"
-edition = "2024"
+[workspace]
+resolver = "2"
+members = [
+  "simpalt",
+  "simpalt-prompt",
+  "simpalt-tmux",
+  "simpalt-zellij",
+]
 
-[dependencies]
+[workspace.package]
+edition = "2024"
+version = "0.3.14"
+
+[workspace.dependencies]
 base64 = "0.23.0"
-chrono = { version = "0.4.45", default-features = false, features = [
-  "clock",
-  "std",
-] }
+chrono = { version = "0.4.45", default-features = false, features = [ "clock", "std", ] }
 flate2 = "1.1.9"
 git2 = "0.21.0"
-simd-json = { version = "0.17.3", default-features = false, features = [
-  "swar-number-parsing",
-  "runtime-detection",
-] }
-unicode-segmentation = { version = "1.13.3", default-features = false, optional = true }
-zellij-tile = { version = "0.45.1", optional = true }
-
-[features]
-default = ["media"]
-zellij = ["dep:zellij-tile"]
-media = ["dep:unicode-segmentation"]
-
-[target.'cfg(target_os = "linux")']
-dependencies = { mpris = { version = "2.1.0", optinal = true } }
-features = { media = ["dep:mpris"] }
-
-[target.'cfg(target_os = "macos")']
-dependencies = { media-remote = { version = "0.5.2", default-features = false } }
-features = { media = ["dep:media-remote"] }
-
-[dev-dependencies]
+media-remote = { version = "0.5.2", default-features = false }
+mpris = "2.1.0"
 regex = "1.13.1"
+simd-json = { version = "0.18.1", default-features = false, features = [ "swar-number-parsing", "runtime-detection", ] }
 tempfile = "3.27.0"
-
-[[bin]]
-name = "simpalt-prompt"
-path = "src/bin/prompt/main.rs"
-
-[[bin]]
-name = "simpalt-time"
-path = "src/bin/time/main.rs"
-
-[[bin]]
-name = "simpalt-tmux"
-path = "src/bin/tmux/main.rs"
-
-[[bin]]
-name = "simpalt-zellij"
-path = "src/bin/zellij/main.rs"
+unicode-segmentation = { version = "1.13.3", default-features = false }
+zellij-tile = "0.45.1"

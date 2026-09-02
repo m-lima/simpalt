@@ -5,6 +5,7 @@ mod direnv;
 mod help;
 mod long;
 mod short;
+mod time;
 mod version;
 
 type Result<T = ()> = std::io::Result<T>;
@@ -22,72 +23,75 @@ fn main() {
 }
 
 fn fallible_main(args: std::env::Args, bin: Option<&String>) -> Result {
-    let args = args::parse(args)?;
+    let action = args::parse(args)?;
 
-    let Some(args) = args else {
-        return help::render(std::io::stdout().lock(), bin);
-    };
-
-    if args.show_version {
-        if args.long || args.error || args.jobs || args.mode.is_some() {
-            Err(std::io::Error::other("Version does not take arguments"))
-        } else {
-            version::render(std::io::stdout().lock())
-        }
-    } else {
-        match args.mode {
+    match action {
+        args::Action::Help => help::render(std::io::stdout().lock(), bin),
+        args::Action::Version => version::render(std::io::stdout().lock()),
+        args::Action::Left(options) => match options.mode {
             Some(args::Mode::Ansi) | None => {
-                if args.long {
+                if options.long {
                     long::render(
                         simpalt::print::Ansi::new(std::io::stdout().lock()),
-                        args.symbol,
-                        args.error,
-                        args.jobs,
+                        options.symbol,
+                        options.error,
+                        options.jobs,
                     )
                 } else {
                     short::render(
                         simpalt::print::Ansi::new(std::io::stdout().lock()),
-                        args.symbol,
-                        args.error,
-                        args.jobs,
+                        options.symbol,
+                        options.error,
+                        options.jobs,
                     )
                 }
             }
             Some(args::Mode::Zsh) => {
-                if args.long {
+                if options.long {
                     long::render(
                         simpalt::print::Zsh::new(std::io::stdout().lock()),
-                        args.symbol,
-                        args.error,
-                        args.jobs,
+                        options.symbol,
+                        options.error,
+                        options.jobs,
                     )
                 } else {
                     short::render(
                         simpalt::print::Zsh::new(std::io::stdout().lock()),
-                        args.symbol,
-                        args.error,
-                        args.jobs,
+                        options.symbol,
+                        options.error,
+                        options.jobs,
                     )
                 }
             }
             Some(args::Mode::Win(sub)) => {
-                if args.long {
+                if options.long {
                     long::render(
                         simpalt::print::Win::new(std::io::stdout().lock(), sub),
-                        args.symbol,
-                        args.error,
-                        args.jobs,
+                        options.symbol,
+                        options.error,
+                        options.jobs,
                     )
                 } else {
                     short::render(
                         simpalt::print::Win::new(std::io::stdout().lock(), sub),
-                        args.symbol,
-                        args.error,
-                        args.jobs,
+                        options.symbol,
+                        options.error,
+                        options.jobs,
                     )
                 }
             }
-        }
+        },
+        args::Action::Right(options) => match options.mode {
+            Some(args::Mode::Ansi) | None => {
+                time::render(simpalt::print::Ansi::new(std::io::stdout().lock()))
+            }
+            Some(args::Mode::Zsh) => {
+                time::render(simpalt::print::Zsh::new(std::io::stdout().lock()))
+            }
+            Some(args::Mode::Win(sub)) => {
+                time::render(simpalt::print::Win::new(std::io::stdout().lock(), sub))
+            }
+        },
     }
 }
 

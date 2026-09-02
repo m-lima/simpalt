@@ -1,0 +1,8 @@
+[package]
+name = "simpalt-zellij"
+edition.workspace = true
+version.workspace = true
+
+[dependencies]
+simpalt.path = "../simpalt"
+zellij-tile.workspace = true

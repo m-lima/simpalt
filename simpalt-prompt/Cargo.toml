@@ -1,0 +1,14 @@
+[package]
+name = "simpalt-prompt"
+edition.workspace = true
+version.workspace = true
+
+[dependencies]
+simpalt.path = "../simpalt"
+base64.workspace = true
+chrono.workspace = true
+flate2.workspace = true
+simd-json.workspace = true
+
+[dev-dependencies]
+regex.workspace = true
