@@ -1,25 +1,29 @@
 [workspace]
 resolver = "2"
-members = [
-  "simpalt",
-  "simpalt-prompt",
-  "simpalt-tmux",
-  "simpalt-zellij",
-]
+members = ["simpalt", "simpalt-prompt", "simpalt-tmux", "simpalt-zellij"]
 
 [workspace.package]
 edition = "2024"
-version = "0.3.14"
+version = "0.4.0"
+
+[workspace.metadata.crane]
+name = "simpalt"
 
 [workspace.dependencies]
 base64 = "0.23.0"
-chrono = { version = "0.4.45", default-features = false, features = [ "clock", "std", ] }
+chrono = { version = "0.4.45", default-features = false, features = [
+  "clock",
+  "std",
+] }
 flate2 = "1.1.9"
 git2 = "0.21.0"
 media-remote = { version = "0.5.2", default-features = false }
 mpris = "2.1.0"
 regex = "1.13.1"
-simd-json = { version = "0.18.1", default-features = false, features = [ "swar-number-parsing", "runtime-detection", ] }
+simd-json = { version = "0.18.1", default-features = false, features = [
+  "swar-number-parsing",
+  "runtime-detection",
+] }
 tempfile = "3.27.0"
 unicode-segmentation = { version = "1.13.3", default-features = false }
 zellij-tile = "0.45.1"

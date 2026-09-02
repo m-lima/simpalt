@@ -2162,7 +2162,7 @@ checksum = "e3a9fe34e3e7a50316060351f37187a3f546bce95496156754b601a5fa71b76e"
 
 [[package]]
 name = "simpalt"
-version = "0.3.14"
+version = "0.4.0"
 dependencies = [
  "git2",
  "tempfile",
@@ -2170,7 +2170,7 @@ dependencies = [
 
 [[package]]
 name = "simpalt-prompt"
-version = "0.3.14"
+version = "0.4.0"
 dependencies = [
  "base64 0.23.1",
  "chrono",
@@ -2182,7 +2182,7 @@ dependencies = [
 
 [[package]]
 name = "simpalt-tmux"
-version = "0.3.14"
+version = "0.4.0"
 dependencies = [
  "chrono",
  "media-remote",
@@ -2194,7 +2194,7 @@ dependencies = [
 
 [[package]]
 name = "simpalt-zellij"
-version = "0.3.14"
+version = "0.4.0"
 dependencies = [
  "simpalt",
  "zellij-tile",
