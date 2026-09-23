@@ -4,5 +4,6 @@ edition.workspace = true
 version.workspace = true
 
 [dependencies]
-simpalt.path = "../simpalt"
+# simpalt.path = "../simpalt"
+gix.workspace = true
 zellij-tile.workspace = true

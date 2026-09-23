@@ -77,9 +77,17 @@
           };
         };
 
+        zellijOptions = sharedOptions // {
+          mega = false;
+          extraToolchains = fenixPkgs: [
+            fenixPkgs.targets.wasm32-wasip1.stable.rust-std
+          ];
+        };
+
         allOptions =
           promptOptions
           // tmuxOptions
+          // zellijOptions
           // {
             buildInputs = pkg: (promptOptions.buildInputs pkg) ++ (tmuxOptions.buildInputs pkg);
             overrides = promptOptions.overrides // tmuxOptions.overrides;
@@ -108,12 +116,24 @@
             cargoExtraArgs = "-p simpalt-tmux";
           }
         );
+        zellij = helper.lib.rust.helper inputs system ./. (
+          zellijOptions
+          // {
+            overrides = {
+              mainArgs = {
+                pname = "simpalt-zellij";
+              };
+            };
+            cargoExtraArgs = "-p simpalt-zellij";
+          }
+        );
       in
       all.outputs
       // {
         packages = {
           prompt = prompt.outputs.packages.default;
           tmux = tmux.outputs.packages.default;
+          zellij = zellij.outputs.packages.default;
         };
         apps = {
           prompt = prompt.outputs.apps.default;

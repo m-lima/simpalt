@@ -20,65 +20,70 @@ pub enum Sync {
 
 #[must_use]
 pub fn parse(path: &std::path::Path) -> Repo {
-    let Some(repo) = git2::Repository::discover(path).ok() else {
+    let Some(repo) = gix::discover(path).ok() else {
         return Repo::None;
     };
 
-    if repo.state() != git2::RepositoryState::Clean {
+    if repo.state().is_some() {
         return Repo::Pending;
     }
 
-    let head = match repo.head() {
-        Ok(head) => head,
+    let mut branch = match repo.head() {
+        Ok(head) => match head.kind {
+            gix::head::Kind::Symbolic(r) => gix::prelude::ReferenceExt::attach(r, &repo),
+            gix::head::Kind::Unborn(_) => return Repo::Untracked,
+            gix::head::Kind::Detached { .. } => return Repo::Detached,
+        },
         Err(e) => {
-            return match e.code() {
-                git2::ErrorCode::UnbornBranch | git2::ErrorCode::NotFound => Repo::Untracked,
-                _ => Repo::Error,
-            };
+            use gix::reference::find::existing::Error;
+            match e {
+                Error::NotFound { .. } => return Repo::Untracked,
+                Error::Find(_) => return Repo::Error,
+            }
         }
     };
 
-    if !head.is_branch() {
-        return Repo::Detached;
-    }
-
-    let Some(head_oid) = head.target() else {
-        return Repo::Error;
+    let Ok(head_oid) = branch.peel_to_id() else {
+        return Repo::Untracked;
     };
 
-    let upstream = match git2::Branch::wrap(head).upstream() {
-        Ok(upstream) => upstream,
-        Err(e) => {
-            return match e.code() {
-                git2::ErrorCode::NotFound => repo_state(&repo, Sync::Local),
-                _ => Repo::Error,
-            };
+    let Some(remote_oid) = branch
+        .remote_ref_name(gix::remote::Direction::Fetch)
+        .and_then(Result::ok)
+        .and_then(|n| repo.find_reference(&n).ok())
+        .and_then(|mut r| r.peel_to_id().ok())
+    else {
+        return Repo::Untracked;
+    };
+
+    let sync = {
+        if head_oid == remote_oid {
+            Sync::UpToDate
+        } else if let Ok(base_oid) = repo.merge_base(head_oid, remote_oid) {
+            if base_oid == remote_oid {
+                Sync::Ahead
+            } else if base_oid == head_oid {
+                Sync::Behind
+            } else {
+                Sync::Diverged
+            }
+        } else {
+            return Repo::Error;
         }
-    };
-
-    let Some(upstream_oid) = upstream.get().target() else {
-        return Repo::Error;
-    };
-
-    let sync = match repo.graph_ahead_behind(head_oid, upstream_oid) {
-        Ok((1.., 1..)) => Sync::Diverged,
-        Ok((1.., _)) => Sync::Ahead,
-        Ok((_, 1..)) => Sync::Behind,
-        Ok(_) => Sync::UpToDate,
-        Err(_) => return Repo::Error,
     };
 
     repo_state(&repo, sync)
 }
 
-fn repo_state(repo: &git2::Repository, sync: Sync) -> Repo {
-    match repo.statuses(Some(
-        git2::StatusOptions::new()
-            .include_ignored(false)
-            .include_untracked(true),
-    )) {
-        Ok(status) if status.is_empty() => Repo::Clean(sync),
-        Ok(_) => Repo::Dirty(sync),
+fn repo_state(repo: &gix::Repository, sync: Sync) -> Repo {
+    match repo.is_dirty() {
+        Ok(dirty) => {
+            if dirty {
+                Repo::Dirty(sync)
+            } else {
+                Repo::Clean(sync)
+            }
+        }
         Err(_) => Repo::Error,
     }
 }

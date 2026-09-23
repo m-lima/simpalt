@@ -8,3 +8,4 @@ strip = true
 mega = "build --profile mega --config build.rustflags=[\"-Ctarget-cpu=native\",\"-Cprefer-dynamic=no\"]"
 m = "mega"
 mr = "run --profile mega --config build.rustflags=[\"-Ctarget-cpu=native\",\"-Cprefer-dynamic=no\"]"
+plugin = "build --release --package simpalt-zellij --target wasm32-wasip1"
