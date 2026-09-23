@@ -48,7 +48,7 @@ pub fn parse(path: &std::path::Path) -> Repo {
     };
 
     let Some(remote_oid) = branch
-        .remote_ref_name(gix::remote::Direction::Fetch)
+        .remote_tracking_ref_name(gix::remote::Direction::Fetch)
         .and_then(Result::ok)
         .and_then(|n| repo.find_reference(&n).ok())
         .and_then(|mut r| r.peel_to_id().ok())
@@ -72,19 +72,16 @@ pub fn parse(path: &std::path::Path) -> Repo {
         }
     };
 
-    repo_state(&repo, sync)
+    repo_state(&repo, sync).unwrap_or(Repo::Error)
 }
 
-fn repo_state(repo: &gix::Repository, sync: Sync) -> Repo {
-    match repo.is_dirty() {
-        Ok(dirty) => {
-            if dirty {
-                Repo::Dirty(sync)
-            } else {
-                Repo::Clean(sync)
-            }
-        }
-        Err(_) => Repo::Error,
+fn repo_state(repo: &gix::Repository, sync: Sync) -> Option<Repo> {
+    let status = repo.status(gix::progress::Discard).ok()?;
+
+    if status.into_iter(None).ok()?.next().is_some() {
+        Some(Repo::Dirty(sync))
+    } else {
+        Some(Repo::Clean(sync))
     }
 }
 
@@ -111,7 +108,6 @@ mod tests {
 
         let coid_a = repo.commit_headless(&[&commit]);
         let coid_b = repo.commit_headless(&[&commit]);
-        println!("{coid_a} {coid_b}");
 
         assert_eq!(Repo::Clean(Sync::UpToDate), parse(path));
 
