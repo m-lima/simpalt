@@ -40,20 +40,9 @@ impl Changes {
     }
 }
 
-fn short_id(oid: git2::Oid) -> Option<String> {
-    let mut oid = oid.as_bytes().iter();
-    match (oid.next(), oid.next(), oid.next(), oid.next()) {
-        (Some(a), None, None, None) => Some(format!("{a:02x}")),
-        (Some(a), Some(b), None, None) => Some(format!("{a:02x}{b:02x}")),
-        (Some(a), Some(b), Some(c), None) => Some(format!("{a:02x}{b:02x}{c:02x}")),
-        (Some(a), Some(b), Some(c), Some(d)) => Some(format!("{a:02x}{b:02x}{c:02x}{d:02x}")),
-        _ => None,
-    }
-}
-
 #[must_use]
 pub fn parse(path: &std::path::Path) -> Repo {
-    let Some(repo) = git2::Repository::discover(path).ok() else {
+    let Some(repo) = gix::discover(path).ok() else {
         return Repo::None;
     };
 
@@ -61,123 +50,137 @@ pub fn parse(path: &std::path::Path) -> Repo {
         return Repo::Error;
     };
 
-    let head = match repo.head() {
-        Ok(head) => head,
-        Err(e) => {
-            return match e.code() {
-                git2::ErrorCode::UnbornBranch | git2::ErrorCode::NotFound => Repo::New(changes),
-                _ => Repo::Error,
-            };
-        }
-    };
-
-    let name = head.shorthand().map_or_else(
-        |_| String::from("??"),
-        |short| {
-            short
-                .eq("HEAD")
-                .then(|| head.target())
-                .flatten()
-                .and_then(short_id)
-                .unwrap_or_else(|| String::from(short))
-        },
-    );
-
-    if !head.is_branch() {
-        return Repo::Detached(name, changes);
-    }
-
-    match repo.state() {
-        git2::RepositoryState::Merge => return Repo::Pending(name, Pending::Merge, changes),
-        git2::RepositoryState::Revert | git2::RepositoryState::RevertSequence => {
-            return Repo::Pending(name, Pending::Revert, changes);
-        }
-        git2::RepositoryState::CherryPick | git2::RepositoryState::CherryPickSequence => {
-            return Repo::Pending(name, Pending::Cherry, changes);
-        }
-        git2::RepositoryState::Bisect => return Repo::Pending(name, Pending::Bisect, changes),
-        git2::RepositoryState::Rebase
-        | git2::RepositoryState::RebaseInteractive
-        | git2::RepositoryState::RebaseMerge => {
-            return Repo::Pending(name, Pending::Rebase, changes);
-        }
-        git2::RepositoryState::ApplyMailbox | git2::RepositoryState::ApplyMailboxOrRebase => {
-            return Repo::Pending(name, Pending::Mailbox, changes);
-        }
-        git2::RepositoryState::Clean => {}
-    }
-
-    let Some(head_oid) = head.target() else {
-        return Repo::Error;
-    };
-
-    let head_branch = git2::Branch::wrap(head);
-    let upstream = match head_branch.upstream() {
-        Ok(upstream) => upstream,
-        Err(e) => {
-            if head_branch
-                .get()
-                .name()
-                .and_then(|r| repo.branch_upstream_remote(r))
-                .is_err()
-            {
-                return Repo::Regular(name, Sync::Local, changes);
+    let (name, head) = match repo.head() {
+        Ok(head) => match head.kind {
+            gix::head::Kind::Symbolic(r) => (r.name.shorten().to_string(), r),
+            gix::head::Kind::Unborn(_) => return Repo::New(changes),
+            gix::head::Kind::Detached { target, .. } => {
+                return Repo::Detached(target.to_hex_with_len(8).to_string(), changes);
             }
-            return match e.code() {
-                git2::ErrorCode::NotFound => Repo::Regular(name, Sync::Gone, changes),
-                _ => Repo::Error,
-            };
+        },
+        Err(e) => {
+            use gix::reference::find::existing::Error;
+            match e {
+                Error::NotFound { .. } => return Repo::New(changes),
+                Error::Find(_) => return Repo::Error,
+            }
         }
     };
 
-    let Some(upstream_oid) = upstream.get().target() else {
+    if let Some(state) = repo.state() {
+        use gix::state::InProgress;
+
+        let pending = match state {
+            InProgress::ApplyMailbox | InProgress::ApplyMailboxRebase => Pending::Mailbox,
+            InProgress::Bisect => Pending::Bisect,
+            InProgress::CherryPick | InProgress::CherryPickSequence => Pending::Cherry,
+            InProgress::Merge => Pending::Merge,
+            InProgress::Rebase | InProgress::RebaseInteractive => Pending::Rebase,
+            InProgress::Revert | InProgress::RevertSequence => Pending::Revert,
+        };
+
+        return Repo::Pending(name, pending, changes);
+    }
+
+    let mut branch = gix::prelude::ReferenceExt::attach(head, &repo);
+    let Ok(head_oid) = branch.peel_to_id() else {
         return Repo::Error;
     };
 
-    let Ok((ahead, behind)) = repo.graph_ahead_behind(head_oid, upstream_oid) else {
-        return Repo::Error;
+    let Some(remote_ref) = branch
+        .remote_tracking_ref_name(gix::remote::Direction::Fetch)
+        .and_then(Result::ok)
+    else {
+        return Repo::Regular(name, Sync::Local, changes);
+    };
+
+    let Some(remote_oid) = repo
+        .find_reference(&remote_ref)
+        .ok()
+        .and_then(|mut r| r.peel_to_id().ok())
+    else {
+        return Repo::Regular(name, Sync::Gone, changes);
+    };
+
+    let (ahead, behind) = {
+        let Ok(cache) = repo.commit_graph_if_enabled() else {
+            return Repo::Error;
+        };
+        let mut graph = repo.revision_graph(cache.as_ref());
+        if head_oid == remote_oid {
+            (0, 0)
+        } else if repo
+            .merge_base_with_graph(head_oid, remote_oid, &mut graph)
+            .is_ok()
+        {
+            let Ok(ahead) = graph.lookup(&head_oid).map(|h| h.iter_parents().count()) else {
+                return Repo::Error;
+            };
+            let Ok(behind) = graph.lookup(&remote_oid).map(|h| h.iter_parents().count()) else {
+                return Repo::Error;
+            };
+            (ahead, behind)
+        } else {
+            return Repo::Error;
+        }
     };
 
     Repo::Regular(name, Sync::Tracked { ahead, behind }, changes)
 }
 
-fn get_changes(repo: &git2::Repository) -> Option<Changes> {
-    repo.statuses(Some(
-        git2::StatusOptions::new()
-            .include_ignored(false)
-            .include_untracked(true),
-    ))
-    .ok()
-    .map(|status| {
-        status
-            .iter()
-            .map(|s| s.status())
-            .fold(Changes::default(), |mut acc, curr| {
-                if curr.contains(git2::Status::CONFLICTED) {
-                    acc.conflicted += 1;
-                } else if curr.intersects(git2::Status::INDEX_NEW | git2::Status::WT_NEW) {
-                    acc.added += 1;
-                } else if curr.intersects(git2::Status::INDEX_DELETED | git2::Status::WT_DELETED) {
-                    acc.removed += 1;
-                } else if curr.intersects(
-                    git2::Status::INDEX_MODIFIED
-                        | git2::Status::WT_MODIFIED
-                        | git2::Status::INDEX_RENAMED
-                        | git2::Status::WT_RENAMED
-                        | git2::Status::INDEX_TYPECHANGE
-                        | git2::Status::WT_TYPECHANGE,
-                ) {
-                    acc.modified += 1;
-                }
-                acc
-            })
-    })
+fn get_changes(repo: &gix::Repository) -> Option<Changes> {
+    let status = repo.status(gix::progress::Discard).ok()?;
+    let mut changes = Changes::default();
+
+    for item in status.into_iter(None).ok()? {
+        use gix::{
+            diff::index::ChangeRef,
+            status::{
+                Item,
+                index_worktree::Item as Index,
+                plumbing::index_as_worktree::{Change, EntryStatus},
+            },
+        };
+
+        match item.ok()? {
+            Item::IndexWorktree(item) => match item {
+                Index::Modification { status, .. } => match status {
+                    EntryStatus::Conflict { .. } => changes.conflicted += 1,
+                    EntryStatus::Change(change) => match change {
+                        Change::Removed => changes.removed += 1,
+                        Change::Type { .. } | Change::Modification { .. } => changes.modified += 1,
+                        Change::SubmoduleModification(_) => {}
+                    },
+                    EntryStatus::NeedsUpdate(_) | EntryStatus::IntentToAdd => {}
+                },
+                Index::DirectoryContents { .. } | Index::Rewrite { .. } => changes.added += 1,
+            },
+            Item::TreeIndex(change) => match change {
+                ChangeRef::Addition { .. } => changes.added += 1,
+                ChangeRef::Deletion { .. } => changes.removed += 1,
+                ChangeRef::Modification { .. } | ChangeRef::Rewrite { .. } => changes.modified += 1,
+            },
+        }
+    }
+
+    Some(changes)
 }
 
 #[cfg(test)]
 mod tests {
     use super::super::tests::TestRepo;
     use super::*;
+
+    fn short_id(oid: git2::Oid) -> Option<String> {
+        let mut oid = oid.as_bytes().iter();
+        match (oid.next(), oid.next(), oid.next(), oid.next()) {
+            (Some(a), None, None, None) => Some(format!("{a:02x}")),
+            (Some(a), Some(b), None, None) => Some(format!("{a:02x}{b:02x}")),
+            (Some(a), Some(b), Some(c), None) => Some(format!("{a:02x}{b:02x}{c:02x}")),
+            (Some(a), Some(b), Some(c), Some(d)) => Some(format!("{a:02x}{b:02x}{c:02x}{d:02x}")),
+            _ => None,
+        }
+    }
 
     #[test]
     fn none() {
