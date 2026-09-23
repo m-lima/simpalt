@@ -103,21 +103,34 @@ pub fn parse(path: &std::path::Path) -> Repo {
     };
 
     let (ahead, behind) = {
-        let Ok(cache) = repo.commit_graph_if_enabled() else {
-            return Repo::Error;
-        };
-        let mut graph = repo.revision_graph(cache.as_ref());
         if head_oid == remote_oid {
             (0, 0)
-        } else if repo
-            .merge_base_with_graph(head_oid, remote_oid, &mut graph)
-            .is_ok()
-        {
-            let Ok(ahead) = graph.lookup(&head_oid).map(|h| h.iter_parents().count()) else {
-                return Repo::Error;
+        } else if let Ok(base) = repo.merge_base(head_oid, remote_oid) {
+            let ahead = if head_oid == base {
+                0
+            } else {
+                match repo
+                    .rev_walk(Some(head_oid))
+                    .with_hidden(Some(base))
+                    .all()
+                    .map(std::iter::Iterator::count)
+                {
+                    Ok(count) => count,
+                    Err(_) => return Repo::Error,
+                }
             };
-            let Ok(behind) = graph.lookup(&remote_oid).map(|h| h.iter_parents().count()) else {
-                return Repo::Error;
+            let behind = if remote_oid == base {
+                0
+            } else {
+                match repo
+                    .rev_walk(Some(remote_oid))
+                    .with_hidden(Some(base))
+                    .all()
+                    .map(std::iter::Iterator::count)
+                {
+                    Ok(count) => count,
+                    Err(_) => return Repo::Error,
+                }
             };
             (ahead, behind)
         } else {
@@ -148,8 +161,9 @@ fn get_changes(repo: &gix::Repository) -> Option<Changes> {
                     EntryStatus::Conflict { .. } => changes.conflicted += 1,
                     EntryStatus::Change(change) => match change {
                         Change::Removed => changes.removed += 1,
-                        Change::Type { .. } | Change::Modification { .. } => changes.modified += 1,
-                        Change::SubmoduleModification(_) => {}
+                        Change::Type { .. }
+                        | Change::Modification { .. }
+                        | Change::SubmoduleModification(_) => changes.modified += 1,
                     },
                     EntryStatus::NeedsUpdate(_) | EntryStatus::IntentToAdd => {}
                 },

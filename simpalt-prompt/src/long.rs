@@ -229,27 +229,33 @@ fn render_sync<P>(printer: &mut P, sync: git::Sync) -> Result
 where
     P: Printer,
 {
-    printer.div(Div::ChevronLeft, Color::Black)?;
-
     match sync {
         git::Sync::Local => {
             printer
+                .div(Div::ChevronLeft, Color::Black)?
                 .fg(Color::Cyan)
                 .txt_gap(format_args!("{} local", Symbol::Local))?;
         }
         git::Sync::Gone => {
             printer
+                .div(Div::ChevronLeft, Color::Black)?
                 .fg(Color::Magenta)
                 .txt_gap(format_args!("{} gone", Symbol::Gone))?;
         }
         git::Sync::Tracked { ahead, behind } => {
             if ahead > 0 {
                 printer
+                    .div(Div::ChevronLeft, Color::Black)?
                     .fg(Color::Yellow)
                     .txt_gap(format_args!("{} {ahead}", Symbol::Ahead))?;
-            }
-            if behind > 0 {
+                if behind > 0 {
+                    printer
+                        .fg(Color::Red)
+                        .txt_gap(format_args!("{} {behind}", Symbol::Behind))?;
+                }
+            } else if behind > 0 {
                 printer
+                    .div(Div::ChevronLeft, Color::Black)?
                     .fg(Color::Red)
                     .txt_gap(format_args!("{} {behind}", Symbol::Behind))?;
             }

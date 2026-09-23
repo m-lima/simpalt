@@ -20,15 +20,9 @@ flate2 = "1.1.9"
 git2 = "0.21.0"
 gix = { version = "0.87.1", default-features = false, features = [
   "max-performance-safe",
-  "comfort",
   "basic",
   "sha1",
-  "worktree-stream",
-  "revparse-regex",
-  "excludes",
-  "attributes",
   "status",
-  "dirwalk",
 ] }
 media-remote = { version = "0.5.2", default-features = false }
 mpris = "2.1.0"
