@@ -1,6 +1,7 @@
 [workspace]
 resolver = "2"
 members = ["simpalt", "simpalt-prompt", "simpalt-tmux", "simpalt-zellij"]
+default-members = ["simpalt", "simpalt-prompt", "simpalt-tmux"]
 
 [workspace.package]
 edition = "2024"
@@ -17,7 +18,18 @@ chrono = { version = "0.4.45", default-features = false, features = [
 ] }
 flate2 = "1.1.9"
 git2 = "0.21.0"
-gix = "0.87.1"
+gix = { version = "0.87.1", default-features = false, features = [
+  "max-performance-safe",
+  "comfort",
+  "basic",
+  "sha1",
+  "worktree-stream",
+  "revparse-regex",
+  "excludes",
+  "attributes",
+  "status",
+  "dirwalk",
+] }
 media-remote = { version = "0.5.2", default-features = false }
 mpris = "2.1.0"
 regex = "1.13.1"
