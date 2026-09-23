@@ -126,18 +126,18 @@ where
     match sync {
         git::Sync::Local => add_slant(printer, has_changes)?
             .fg(Color::Cyan)
-            .txt_gap(format_args!("{} local", Symbol::Local))
+            .txt_gap(format_args!("{}local", Symbol::Local))
             .map(|_| ()),
         git::Sync::Gone => add_slant(printer, has_changes)?
             .fg(Color::Magenta)
-            .txt_gap(format_args!("{} gone", Symbol::Gone))
+            .txt_gap(format_args!("{}gone", Symbol::Gone))
             .map(|_| ()),
         git::Sync::Tracked { ahead, behind } => {
             let has_ahead = ahead > 0;
             if has_ahead {
                 add_slant(printer, has_changes)?
                     .fg(Color::Yellow)
-                    .txt_gap(format_args!("{} {ahead}", Symbol::Ahead))?;
+                    .txt_gap(format_args!("{}{ahead}", Symbol::Ahead))?;
             }
 
             if behind > 0 {
@@ -147,7 +147,7 @@ where
 
                 printer
                     .fg(Color::Red)
-                    .txt_gap(format_args!("{} {behind}", Symbol::Behind))?;
+                    .txt_gap(format_args!("{}{behind}", Symbol::Behind))?;
             }
 
             Ok(())

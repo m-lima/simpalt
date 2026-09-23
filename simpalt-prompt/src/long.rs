@@ -234,30 +234,30 @@ where
             printer
                 .div(Div::ChevronLeft, Color::Black)?
                 .fg(Color::Cyan)
-                .txt_gap(format_args!("{} local", Symbol::Local))?;
+                .txt_gap(format_args!("{}local", Symbol::Local))?;
         }
         git::Sync::Gone => {
             printer
                 .div(Div::ChevronLeft, Color::Black)?
                 .fg(Color::Magenta)
-                .txt_gap(format_args!("{} gone", Symbol::Gone))?;
+                .txt_gap(format_args!("{}gone", Symbol::Gone))?;
         }
         git::Sync::Tracked { ahead, behind } => {
             if ahead > 0 {
                 printer
                     .div(Div::ChevronLeft, Color::Black)?
                     .fg(Color::Yellow)
-                    .txt_gap(format_args!("{} {ahead}", Symbol::Ahead))?;
+                    .txt_gap(format_args!("{}{ahead}", Symbol::Ahead))?;
                 if behind > 0 {
                     printer
                         .fg(Color::Red)
-                        .txt_gap(format_args!("{} {behind}", Symbol::Behind))?;
+                        .txt_gap(format_args!("{}{behind}", Symbol::Behind))?;
                 }
             } else if behind > 0 {
                 printer
                     .div(Div::ChevronLeft, Color::Black)?
                     .fg(Color::Red)
-                    .txt_gap(format_args!("{} {behind}", Symbol::Behind))?;
+                    .txt_gap(format_args!("{}{behind}", Symbol::Behind))?;
             }
         }
     }

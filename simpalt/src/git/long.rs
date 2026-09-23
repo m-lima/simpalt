@@ -102,43 +102,52 @@ pub fn parse(path: &std::path::Path) -> Repo {
         return Repo::Regular(name, Sync::Gone, changes);
     };
 
-    let (ahead, behind) = {
-        if head_oid == remote_oid {
-            (0, 0)
-        } else if let Ok(base) = repo.merge_base(head_oid, remote_oid) {
-            let ahead = if head_oid == base {
-                0
-            } else {
-                match repo
-                    .rev_walk(Some(head_oid))
-                    .with_hidden(Some(base))
-                    .all()
-                    .map(std::iter::Iterator::count)
-                {
-                    Ok(count) => count,
-                    Err(_) => return Repo::Error,
-                }
-            };
-            let behind = if remote_oid == base {
-                0
-            } else {
-                match repo
-                    .rev_walk(Some(remote_oid))
-                    .with_hidden(Some(base))
-                    .all()
-                    .map(std::iter::Iterator::count)
-                {
-                    Ok(count) => count,
-                    Err(_) => return Repo::Error,
-                }
-            };
-            (ahead, behind)
-        } else {
-            return Repo::Error;
-        }
-    };
+    match get_sync(&repo, head_oid, remote_oid) {
+        Some((ahead, behind)) => Repo::Regular(name, Sync::Tracked { ahead, behind }, changes),
+        None => Repo::Error,
+    }
+}
 
-    Repo::Regular(name, Sync::Tracked { ahead, behind }, changes)
+fn get_sync(
+    repo: &gix::Repository,
+    head: gix::Id<'_>,
+    remote: gix::Id<'_>,
+) -> Option<(usize, usize)> {
+    if head == remote {
+        Some((0, 0))
+    } else {
+        let graph = repo.commit_graph_if_enabled().ok()?;
+        if let Ok(base) =
+            repo.merge_base_with_graph(head, remote, &mut repo.revision_graph(graph.as_ref()))
+        {
+            Some((
+                count_walk(repo, base, head)?,
+                count_walk(repo, base, remote)?,
+            ))
+        } else {
+            None
+        }
+    }
+}
+
+fn count_walk(repo: &gix::Repository, base: gix::Id<'_>, oid: gix::Id<'_>) -> Option<usize> {
+    if base == oid {
+        return Some(0);
+    }
+
+    let mut count = 0;
+    for i in repo
+        .rev_walk(Some(oid))
+        .with_hidden(Some(base))
+        .all()
+        .ok()?
+    {
+        if i.is_err() {
+            return None;
+        }
+        count += 1;
+    }
+    Some(count)
 }
 
 fn get_changes(repo: &gix::Repository) -> Option<Changes> {
@@ -251,8 +260,11 @@ mod tests {
             repo.set_upstream(coid);
 
             let coid_a = repo.commit_headless(&[&commit]);
-            let coid_b = repo.commit_headless(&[&commit]);
+            let (prev_commit, _) = repo.commit(&[&commit]);
+            let (prev_prev_commit, _) = repo.commit(&[&prev_commit, &commit]);
+            let coid_b = repo.commit_headless(&[&prev_prev_commit, &prev_commit, &commit]);
 
+            repo.set_pointers(coid, coid);
             assert_eq!(
                 Repo::Regular(
                     String::from("master"),
@@ -296,7 +308,7 @@ mod tests {
                 Repo::Regular(
                     String::from("master"),
                     Sync::Tracked {
-                        ahead: 1,
+                        ahead: 3,
                         behind: 1
                     },
                     Changes::default()
