@@ -1,18 +1,10 @@
-zellij_tile::register_plugin!(State);
+use zellij_tile::ZellijPlugin;
+use zellij_tile::shim::report_panic;
 
-#[derive(Default)]
-struct State {}
+zellij_tile::register_plugin!(plugin::State);
 
-impl zellij_tile::ZellijPlugin for State {
-    fn load(&mut self, configuration: std::collections::BTreeMap<String, String>) {}
+type Result<T = ()> = std::io::Result<T>;
 
-    fn update(&mut self, event: zellij_tile::prelude::Event) -> bool {
-        false
-    }
-
-    fn pipe(&mut self, pipe_message: zellij_tile::prelude::PipeMessage) -> bool {
-        false
-    }
-
-    fn render(&mut self, rows: usize, cols: usize) {}
-}
+mod left;
+mod plugin;
+mod right;

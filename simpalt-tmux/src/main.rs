@@ -26,7 +26,7 @@ fn fallible_main(args: std::env::Args, bin: Option<&String>) -> Result {
         args::Action::Help => help::render(std::io::stdout().lock(), bin),
         args::Action::Version => version::render(std::io::stdout().lock()),
         args::Action::Status(path) => {
-            print::render(simpalt::print::Tmux::new(std::io::stdout().lock()), path)
+            print::render(simpalt::print::Tmux::new(std::io::stdout().lock()), &path)
         }
     }
 }

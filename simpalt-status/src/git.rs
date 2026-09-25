@@ -5,7 +5,7 @@ use simpalt::{
     print::{Color, Div, Printer, Symbol},
 };
 
-pub fn render<P>(printer: &mut P, pwd: String) -> Result
+pub fn render<P>(printer: &mut P, pwd: &str) -> Result
 where
     P: Printer,
 {
@@ -213,7 +213,6 @@ mod tests {
                     "#[fg=cyan,bg=colour236]",
                     " ",
                     Symbol::Local.str(),
-                    " ",
                     "local",
                     " ",
                 ],
@@ -253,7 +252,6 @@ mod tests {
                     "#[fg=magenta]",
                     " ",
                     Symbol::Gone.str(),
-                    " ",
                     "gone",
                     " ",
                 ],
@@ -333,12 +331,10 @@ mod tests {
                     "#[fg=yellow,bg=colour236]",
                     " ",
                     Symbol::Ahead.str(),
-                    " ",
                     "1",
                     " ",
                     "#[fg=red]",
                     Symbol::Behind.str(),
-                    " ",
                     "2",
                     " ",
                 ],
@@ -392,12 +388,10 @@ mod tests {
                     "#[fg=yellow]",
                     " ",
                     Symbol::Ahead.str(),
-                    " ",
                     "1",
                     " ",
                     "#[fg=red]",
                     Symbol::Behind.str(),
-                    " ",
                     "2",
                     " ",
                 ],

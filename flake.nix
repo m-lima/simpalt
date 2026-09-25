@@ -39,6 +39,30 @@
           };
         };
 
+        statusOptions = sharedOptions // {
+          buildInputs =
+            pkgs:
+            [
+              pkgs.openssl
+            ]
+            ++ pkgs.lib.optional pkgs.stdenv.isLinux pkgs.dbus;
+          overrides = {
+            devShell =
+              prev:
+              prev
+              // {
+                env = prev.env // {
+                  LD_LIBRARY_PATH = pkgs.lib.makeLibraryPath (
+                    [
+                      pkgs.openssl
+                    ]
+                    ++ pkgs.lib.optional pkgs.stdenv.isLinux pkgs.dbus
+                  );
+                };
+              };
+          };
+        };
+
         promptOptions = sharedOptions // {
           overrides = {
             checks = {
@@ -58,26 +82,9 @@
           };
         };
 
-        tmuxOptions = sharedOptions // {
-          buildInputs =
-            pkgs:
-            [
-              pkgs.openssl
-            ]
-            ++ pkgs.lib.optional pkgs.stdenv.isLinux pkgs.dbus;
-          overrides = {
-            devShell =
-              prev:
-              prev
-              // {
-                env = prev.env // {
-                  LD_LIBRARY_PATH = pkgs.lib.makeLibraryPath [ pkgs.dbus ];
-                };
-              };
-          };
-        };
+        tmuxOptions = statusOptions;
 
-        zellijOptions = sharedOptions // {
+        zellijOptions = statusOptions // {
           mega = false;
           extraToolchains = fenixPkgs: [
             fenixPkgs.targets.wasm32-wasip1.stable.rust-std
@@ -89,8 +96,8 @@
           // tmuxOptions
           // zellijOptions
           // {
-            buildInputs = pkg: (promptOptions.buildInputs pkg) ++ (tmuxOptions.buildInputs pkg);
-            overrides = promptOptions.overrides // tmuxOptions.overrides;
+            buildInputs = pkg: (sharedOptions.buildInputs pkg) ++ (statusOptions.buildInputs pkg);
+            overrides = statusOptions.overrides // promptOptions.overrides;
           };
 
         all = helper.lib.rust.helper inputs system ./. allOptions;

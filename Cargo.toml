@@ -1,7 +1,12 @@
 [workspace]
 resolver = "2"
-members = ["simpalt", "simpalt-prompt", "simpalt-tmux", "simpalt-zellij"]
-default-members = ["simpalt", "simpalt-prompt", "simpalt-tmux"]
+members = [
+  "simpalt",
+  "simpalt-prompt",
+  "simpalt-status",
+  "simpalt-tmux",
+  "simpalt-zellij",
+]
 
 [workspace.package]
 edition = "2024"

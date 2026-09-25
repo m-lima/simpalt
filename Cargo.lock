@@ -3382,7 +3382,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "simpalt-tmux"
+name = "simpalt-status"
 version = "0.4.0"
 dependencies = [
  "chrono",
@@ -3394,10 +3394,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "simpalt-tmux"
+version = "0.4.0"
+dependencies = [
+ "chrono",
+ "simpalt",
+ "simpalt-status",
+]
+
+[[package]]
 name = "simpalt-zellij"
 version = "0.4.0"
 dependencies = [
- "gix",
+ "chrono",
+ "simpalt",
+ "simpalt-status",
+ "unicode-segmentation",
  "zellij-tile",
 ]
 

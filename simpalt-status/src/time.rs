@@ -1,6 +1,8 @@
 use chrono::{Datelike, Timelike};
 use simpalt::print::{Color, Div, Printer};
 
+pub const LENGTH: usize = 19;
+
 pub fn render<P>(printer: &mut P) -> crate::Result
 where
     P: Printer,

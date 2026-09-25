@@ -4,6 +4,12 @@ edition.workspace = true
 version.workspace = true
 
 [dependencies]
-# simpalt.path = "../simpalt"
-gix.workspace = true
+simpalt.path = "../simpalt"
+simpalt-status.path = "../simpalt-status"
+chrono.workspace = true
+unicode-segmentation.workspace = true
 zellij-tile.workspace = true
+
+[features]
+default = ["media"]
+media = ["simpalt-status/media"]
