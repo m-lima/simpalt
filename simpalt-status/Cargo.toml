@@ -6,6 +6,7 @@ version.workspace = true
 [dependencies]
 simpalt.path = "../simpalt"
 chrono.workspace = true
+unicode-segmentation = { workspace = true, optional = true }
 
 [dev-dependencies]
 regex.workspace = true
@@ -16,8 +17,6 @@ media = ["dep:unicode-segmentation", "dep:media-remote", "dep:mpris"]
 
 [target.'cfg(target_os = "linux")'.dependencies]
 mpris = { workspace = true, optional = true }
-unicode-segmentation = { workspace = true, optional = true }
 
 [target.'cfg(target_os = "macos")'.dependencies]
 media-remote = { workspace = true, optional = true }
-unicode-segmentation = { workspace = true, optional = true }

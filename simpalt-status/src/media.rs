@@ -102,16 +102,26 @@ where
 }
 
 fn scroll(track: &str, tick: Option<u64>) -> &str {
-    if track.len() > LENGTH
-        && let Ok(len) = u64::try_from(2 * (track.len() - LENGTH))
-        && let Some(tick) = tick.map(|t| t % len)
+    let track_len = unicode_segmentation::UnicodeSegmentation::graphemes(track, true).count();
+
+    if let Some(overflow) = track_len.checked_sub(LENGTH) // If it is smaller than LENGTH, return
+                                                          // the whole track
+        && let Ok(scroll_len) = u64::try_from(2 * overflow + 2) // The scroll goes forwards and
+                                                                // backwards, so we need it to be twice
+                                                                // the overflow size plus two extra
+                                                                // steps (one extra step for each
+                                                                // extremity)
+        && let Some(tick) = tick.map(|t| t % scroll_len) // Each tick moves along the scroll space
         && let Ok(start) = usize::try_from(tick)
     {
-        let start = if start < track.len() - LENGTH {
+        let start = start.saturating_sub(1); // Step 0 should count twice, so that the beginning stays for longer
+
+        let start = if start <= overflow {
             start
         } else {
-            2 * (track.len() - LENGTH) - start
+            2 * overflow - (start - 1)
         };
+
         let mut graphemes =
             unicode_segmentation::UnicodeSegmentation::grapheme_indices(track, true).skip(start);
 
@@ -282,12 +292,24 @@ mod tests {
             assert_eq!(track, &original[..LENGTH]);
 
             let track = scroll(&original, Some(1));
-            assert_eq!(track, &original[1..]);
-
-            let track = scroll(&original, Some(2));
             assert_eq!(track, &original[..LENGTH]);
 
+            let track = scroll(&original, Some(2));
+            assert_eq!(track, &original[1..]);
+
             let track = scroll(&original, Some(3));
+            assert_eq!(track, &original[1..]);
+
+            let track = scroll(&original, Some(4));
+            assert_eq!(track, &original[..LENGTH]);
+
+            let track = scroll(&original, Some(5));
+            assert_eq!(track, &original[..LENGTH]);
+
+            let track = scroll(&original, Some(6));
+            assert_eq!(track, &original[1..]);
+
+            let track = scroll(&original, Some(7));
             assert_eq!(track, &original[1..]);
         }
 
@@ -302,27 +324,15 @@ mod tests {
                 .take(LENGTH + OVERFLOW)
                 .collect::<String>();
 
-            let mut start = 0;
-            let mut end = LENGTH;
-            let mut forward = true;
+            let indices = [
+                0, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 16, 15, 14, 13, 12,
+                11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1,
+            ];
 
             for i in 0..OVERFLOW * 4 {
                 let track = scroll(&original, u64::try_from(i).ok());
-                assert_eq!(track, &original[start..end]);
-
-                if start == 0 {
-                    forward = true;
-                } else if end == original.len() {
-                    forward = false;
-                }
-
-                if forward {
-                    start += 1;
-                    end += 1;
-                } else {
-                    start -= 1;
-                    end -= 1;
-                }
+                let index = indices[i % indices.len()];
+                assert_eq!(track, &original[index..index + LENGTH]);
             }
         }
     }
